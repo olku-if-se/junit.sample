@@ -37,4 +37,14 @@ Sample: https://github.com/junit-team/junit-examples/tree/main/junit-migration-g
 
 References:
 - https://junit.org/junit4/
-- 
+
+### Step 4: Enable JaCoCo Code Coverage
+
+- Activate JaCoCo plugin in your `build.gradle` file:
+- Make JaCoCo report generation task depend on the test task.
+
+ref: https://docs.gradle.org/current/userguide/jacoco_plugin.html
+
+### Step 5: Optimize reporting and execution speed
+
+https://docs.gradle.org/current/userguide/java_testing.html#test_reporting

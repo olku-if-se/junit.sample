@@ -1,5 +1,13 @@
 plugins {
     id 'java'
+    id 'jacoco'
+}
+
+if (hasProperty('buildScan')) {
+    buildScan {
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
+    }
 }
 
 group = 'org.example'
@@ -23,5 +31,20 @@ test {
     useJUnitPlatform()
     testLogging {
         events("passed", "skipped", "failed")
+    }
+    jacoco {
+        enabled = true
+        includes = ['**/*']
+    }
+    finalizedBy(jacocoTestReport)
+}
+
+jacocoTestReport {
+    dependsOn test // Ensure tests are run before generating the report
+
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
     }
 }
