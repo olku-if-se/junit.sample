@@ -10,10 +10,18 @@ repositories {
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.13.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    // For JUnit 4 compatibility
+    testImplementation("junit:junit:4.13.2")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 test {
     useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
