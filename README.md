@@ -48,3 +48,18 @@ ref: https://docs.gradle.org/current/userguide/jacoco_plugin.html
 ### Step 5: Optimize reporting and execution speed
 
 https://docs.gradle.org/current/userguide/java_testing.html#test_reporting
+
+```bash
+# Run tests with no reports (Custom Property)
+gradlew test --rerun -PNoReports
+```
+
+### Step 5: Activate Mocks 
+
+- Add Mockito dependency to your `build.gradle` file, ref: https://site.mockito.org/
+- Alternatives:
+  - EasyMock (org.easymock:easymock), ref: https://easymock.org/
+  - PowerMock (org.powermock:powermock-module-junit4) - PowerMock only if absolutely necessary for unmockable legacy code, Consider refactoring instead of using PowerMock.
+- REST API mocking libraries:
+  - WireMock, ref: http://wiremock.org/
+  - MockWebServer (OkHttp) - https://github.com/square/okhttp/tree/master/mockwebserver

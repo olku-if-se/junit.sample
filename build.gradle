@@ -25,6 +25,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // Mocks, https://site.mockito.org/
+    testImplementation "org.mockito:mockito-core:5.+"
 }
 
 test {
@@ -43,8 +46,15 @@ jacocoTestReport {
     dependsOn test // Ensure tests are run before generating the report
 
     reports {
-        xml.required = true
-        csv.required = false
-        html.required = true
+        xml.required = !project.hasProperty("NoReports")
+        csv.required = !project.hasProperty("NoReports")
+        html.required = !project.hasProperty("NoReports")
+    }
+}
+
+tasks.withType(Test).configureEach {
+    if (project.hasProperty("NoReports")) {
+        reports.junitXml.required = false
+        reports.html.required = false
     }
 }
