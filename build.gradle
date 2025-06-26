@@ -1,4 +1,5 @@
 import org.fusesource.jansi.Ansi
+
 import java.text.MessageFormat
 
 plugins {
@@ -40,9 +41,16 @@ dependencies {
 test {
     useJUnitPlatform()
 
+    // Use the number of available processors, or set a fixed number
+    //maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
     jacoco {
         enabled = true
         includes = ['**/*']
+    }
+
+    testLogging {
+        events("failed")
     }
 
     finalizedBy(jacocoTestReport)
@@ -70,6 +78,12 @@ test {
                 .reset().toString())
 
         println template.format([desc.className, desc.methodName, resultType, duration].toArray())
+
+        // on failure we should print STDOUT and STDERR of the test
+        if (resultType == "FAILED") {
+            println "STDOUT:\n${result.standardOutput}"
+            println "STDERR:\n${result.errorOutput}"
+        }
     }
 }
 

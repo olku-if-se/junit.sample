@@ -21,14 +21,20 @@ gradlew wrapper --gradle-version latest
 # -t, --continuous - Enables continuous build. Gradle does not exit and will re-execute tasks when task file inputs change.
 
 gradlew test --tests org.ifit.* --info --continuous 
+
+# simplest way
+gradlew test -t
 ```
 
 External Libraries should include:
+
 - JUnit 5 (org.junit.jupiter:junit-jupiter*)
 - JUnit Platform Engine (org.junit.platform:junit-platform*)
-- Open Test4J (org.opentest4j:opentest4j) - There is no standard for testing on the JVM: the only common building block we have is java.lang.AssertionError.
+- Open Test4J (org.opentest4j:opentest4j) - There is no standard for testing on the JVM: the only common building block
+  we have is java.lang.AssertionError.
 
 Open Test4J can be easily replaced by:
+
 - AssertJ (org.assertj:assertj-core) - AssertJ is a fluent assertion library for Java.
 - Hamcrest (org.hamcrest:hamcrest) - Hamcrest is a library of matchers for building test expressions.
 
@@ -36,6 +42,7 @@ Activate JUnit 4 compatibility (migration).
 Sample: https://github.com/junit-team/junit-examples/tree/main/junit-migration-gradle
 
 References:
+
 - https://junit.org/junit4/
 
 ### Step 4: Enable JaCoCo Code Coverage
@@ -54,12 +61,20 @@ https://docs.gradle.org/current/userguide/java_testing.html#test_reporting
 gradlew test --rerun -PNoReports
 ```
 
-### Step 5: Activate Mocks 
+### Step 5: Activate Mocks
 
 - Add Mockito dependency to your `build.gradle` file, ref: https://site.mockito.org/
 - Alternatives:
-  - EasyMock (org.easymock:easymock), ref: https://easymock.org/
-  - PowerMock (org.powermock:powermock-module-junit4) - PowerMock only if absolutely necessary for unmockable legacy code, Consider refactoring instead of using PowerMock.
+    - EasyMock (org.easymock:easymock), ref: https://easymock.org/
+    - PowerMock (org.powermock:powermock-module-junit4) - PowerMock only if absolutely necessary for unmockable legacy
+      code, Consider refactoring instead of using PowerMock.
 - REST API mocking libraries:
-  - WireMock, ref: http://wiremock.org/
-  - MockWebServer (OkHttp) - https://github.com/square/okhttp/tree/master/mockwebserver
+    - WireMock, ref: http://wiremock.org/
+    - MockWebServer (OkHttp) - https://github.com/square/okhttp/tree/master/mockwebserver
+
+### Troubleshooting
+
+```shell
+# that will force different locale for the java application!
+set LANG=fr_FR.UTF8 && gradlew test --rerun
+```
