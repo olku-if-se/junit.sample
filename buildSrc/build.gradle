@@ -1,0 +1,9 @@
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // ref: http://fusesource.github.io/jansi - Jansi is a small ASL 2.0 licensed Java library that
+    // allows you to use ANSI escape sequences to format your console output which works even on windows.
+    implementation 'org.fusesource.jansi:jansi:2.4.2'
+}

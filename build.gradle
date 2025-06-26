@@ -1,6 +1,13 @@
+import org.fusesource.jansi.Ansi
+import java.text.MessageFormat
+
 plugins {
     id 'java'
     id 'jacoco'
+}
+
+repositories {
+    mavenCentral()
 }
 
 if (hasProperty('buildScan')) {
@@ -13,9 +20,9 @@ if (hasProperty('buildScan')) {
 group = 'org.example'
 version = '1.0-SNAPSHOT'
 
-repositories {
-    mavenCentral()
-}
+// force Java 11 for project code (stay close to Guidewire environment)
+java.toolchain.languageVersion = JavaLanguageVersion.of(11)
+compileJava.options.release = 11
 
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.13.2')
@@ -32,14 +39,38 @@ dependencies {
 
 test {
     useJUnitPlatform()
-    testLogging {
-        events("passed", "skipped", "failed")
-    }
+
     jacoco {
         enabled = true
         includes = ['**/*']
     }
+
     finalizedBy(jacocoTestReport)
+
+    // Custom test result logging with timing feedback
+    afterTest { desc, result ->
+        def duration = result.endTime - result.startTime
+        def resultType = result.resultType.toString()
+
+        def resultColor = resultType == "SUCCESS" ? Ansi.Color.GREEN :
+                resultType == "SKIPPED" ? Ansi.Color.YELLOW : Ansi.Color.RED
+
+        def timeColor = duration > 5000 ? Ansi.Color.RED :
+                duration >= 1000 ? Ansi.Color.YELLOW : Ansi.Color.GREEN
+
+        def template = new MessageFormat(Ansi.ansi()
+                .a("Test ")
+                .bold().a("{0}").boldOff()
+                .a(" > ")
+                .fgBrightDefault().a("{1}").reset()
+                .a(" - ")
+                .fg(resultColor).a("{2}").reset()
+                .a(", took: ")
+                .fg(timeColor).a("{3} ms")
+                .reset().toString())
+
+        println template.format([desc.className, desc.methodName, resultType, duration].toArray())
+    }
 }
 
 jacocoTestReport {
