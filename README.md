@@ -72,9 +72,26 @@ gradlew test --rerun -PNoReports
     - WireMock, ref: http://wiremock.org/
     - MockWebServer (OkHttp) - https://github.com/square/okhttp/tree/master/mockwebserver
 
-### Troubleshooting
+### Hidden Troubles
 
 ```shell
 # that will force different locale for the java application!
 set LANG=fr_FR.UTF8 && gradlew test --rerun
+
+# LANG, LC_ALL - used by JVM to determine the locale for formatting messages
 ```
+
+### Step 6: Activate GOSU language support
+
+```bash
+# capture the build task graph (compileGosu, compileTestGosu)
+gradlew build taskTree
+```
+
+Known issues:
+
+- JUnit IDE configuration stop working for Mockito tests (java.lang.Error: Circular loading of installed providers
+  detected).;
+
+https://plugins.gradle.org/plugin/org.gosu-lang.gosu
+https://github.com/gosu-lang/gradle-gosu-plugin

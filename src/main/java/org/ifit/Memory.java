@@ -15,5 +15,7 @@ public interface Memory {
         int b();
 
         String result();
+
+        String timestamp();
     }
 }

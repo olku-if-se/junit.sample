@@ -5,6 +5,9 @@ import java.text.MessageFormat
 plugins {
     id 'java'
     id 'jacoco'
+    id 'org.gosu-lang.gosu' version '+'
+    id "com.dorongold.task-tree" version "+"
+    id 'idea'
 }
 
 repositories {
@@ -20,16 +23,42 @@ if (hasProperty('buildScan')) {
 
 group = 'org.example'
 version = '1.0-SNAPSHOT'
+description = 'Gosu Junit Gradle Project Example'
 
 // force Java 11 for project code (stay close to Guidewire environment)
 java.toolchain.languageVersion = JavaLanguageVersion.of(11)
 compileJava.options.release = 11
+targetCompatibility = 11
+sourceCompatibility = 11
+
+// Include Gosu source sets Into Compilation Process
+sourceSets {
+    main {
+        gosu {
+            srcDirs = ['src/main/gosu']
+            filter.include '**/*.gs', '**/*.gsx', '**/*.gst', '**/*.gsp'
+            filter.excludes = []
+        }
+    }
+    test {
+        gosu {
+            srcDirs = ['src/test/gosu']
+            filter.include '**/*.gs', '**/*.gsx', '**/*.gst', '**/*.gsp'
+            filter.excludes = []
+        }
+    }
+}
 
 dependencies {
+    // Gosu Language dependencies
+    implementation 'org.gosu-lang.gosu:gosu-core:+'
+    testImplementation 'org.gosu-lang.gosu:gosu-test:+'
+
+    // JUnit 5 dependencies
     testImplementation platform('org.junit:junit-bom:5.13.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 
-    // For JUnit 4 compatibility
+    // JUnit 4 compatibility
     testImplementation("junit:junit:4.13.2")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -101,5 +130,41 @@ tasks.withType(Test).configureEach {
     if (project.hasProperty("NoReports")) {
         reports.junitXml.required = false
         reports.html.required = false
+    }
+}
+
+// Gosu Configuration
+compileGosu {
+    // TBD: Gosu compiler options can be set here
+    gosuOptions.verbose = true
+
+    // include Java classpath in Gosu compilation, so we can reference Java classes in Gosu Code
+    // classpath += files(tasks.named('compileJava').get().destinationDir)
+}
+
+compileTestGosu {
+    // TBD: Gosu test compiler options can be set here
+
+    // include Java test classes into Gosu test compilation, so we can reference Java classes in Gosu Test Code
+    // classpath += files(tasks.named('compileTestJava').get().destinationDir)
+}
+
+gosudoc {
+    // TBD: Gosu documentation options can be set here
+}
+
+// Configure IDEA to recognize Gosu source directories
+idea {
+    module {
+        sourceDirs += file('src/main/gosu')
+        testSources.from(file('src/test/gosu'))
+    }
+}
+
+// examine the order of classes in the classpath
+tasks.register('printTestClassPath') {
+    doLast {
+        def testClassPath = sourceSets.test.runtimeClasspath.asPath
+        println "Test Classpath\n${testClassPath.split(';')*.trim().join('\n')}"
     }
 }

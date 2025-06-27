@@ -4,8 +4,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.internal.verification.Times;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -72,7 +77,7 @@ public class CalculatorTests {
         calculator.divide(2, 3);
 
         // Then: expected saved operation in memory but no history
-        verify(_mockedLastOperationOnly).save("divide", 2, 3, "0,667");
+        verify(_mockedLastOperationOnly).save("divide", 2, 3, "0.667");
 
         // And: verify that history is not called and not saved due to mocks usage
         verify(_mockedLastOperationOnly, new Times(0)).history();
@@ -99,5 +104,32 @@ public class CalculatorTests {
 
         // And: highlight the misconception of using spy
         Assertions.assertNull(memory.history(), "Spy is a Proxy that replace memory state with its own. So original state of the memory is untouched!");
+    }
+
+    @Test
+    public void shouldDemonstrateTimeManipulationsInTests() {
+        // Given: Fixed clock for time manipulation
+        final Clock fixedClock = Clock.fixed(java.time.Instant.parse("2023-10-01T10:00:00Z"), ZoneOffset.UTC);
+        final Instant mocked = Instant.now(fixedClock); // Set the fixed clock for the test
+
+        // And: we intercept all calls to Instant.now() to return the mocked time
+        try (MockedStatic<Instant> mockedStatic = Mockito.mockStatic(Instant.class)) {
+            mockedStatic.when(Instant::now).thenReturn(mocked);
+
+            // AND: Calculator with LastOperationOnly memory engine
+            final Memory memory = new LastOperationOnly();
+            final Calculator calculator = new Calculator(memory);
+
+            // When: Performing an addition operation
+            calculator.add(2, 3);
+
+            // Then: expected saved operation in memory/history
+            Assertions.assertNotNull(memory.history(), "History should not be null after an operation");
+            Assertions.assertFalse(memory.history().isEmpty(), "History should contain one operation after addition");
+
+            // And: verify the timestamp of the last operation
+            String timestamp = memory.history().get(0).timestamp();
+            Assertions.assertEquals("2023-10-01T10:00:00Z", timestamp, "Timestamp should match the mocked time");
+        }
     }
 }

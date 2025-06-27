@@ -18,4 +18,12 @@ public class MyFirstJUnit5Tests {
         // Another test method in JUnit 5 style.
         assertTrue("This test should pass", true);
     }
+
+    // print the classpath of the test
+    @Test
+    public void print_classpath() {
+        final String[] classpath = System.getProperty("java.class.path").split(";");
+
+        System.out.println("Classpath:\n" + String.join("\n", classpath));
+    }
 }

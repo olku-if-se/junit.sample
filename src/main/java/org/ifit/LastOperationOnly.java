@@ -1,5 +1,6 @@
 package org.ifit;
 
+import java.time.Instant;
 import java.util.List;
 
 public class LastOperationOnly implements Memory {
@@ -8,6 +9,8 @@ public class LastOperationOnly implements Memory {
     @Override
     public void save(String operation, int a, int b, String result) {
         final String hashCode = String.valueOf(this.hashCode());
+        final Instant now = Instant.now();
+
         final Record record = new Record() {
             @Override
             public String operation() {
@@ -27,6 +30,11 @@ public class LastOperationOnly implements Memory {
             @Override
             public String result() {
                 return result;
+            }
+
+            @Override
+            public String timestamp() {
+                return String.valueOf(now);
             }
 
             @Override
