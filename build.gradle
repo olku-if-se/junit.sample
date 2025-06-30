@@ -78,6 +78,9 @@ dependencies {
 
     // e2e, Test web server for HTTP tests
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+
+    // JSON Schema validation (used for JSON validation and contract testing)
+    testImplementation 'com.github.erosb:everit-json-schema:1.14.6'
 }
 
 test {

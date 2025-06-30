@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 public class CalculatorIntegrationTests {
     // bad sample of mocking, when exactly we create the mock? Before all?
-    private static CatFactNinja _mockedCatFactNinja = mock(CatFactNinja.class);
+    private static final CatFactNinja _mockedCatFactNinja = mock(CatFactNinja.class);
     // Highly configurable web server that allows us to mock REST API calls
     private MockWebServer _server = null;
 
@@ -55,7 +55,6 @@ public class CalculatorIntegrationTests {
         // Then: expected result is not null and contains a cat fact
         assertEquals("[0]: add(1, 2) == 3 fact: test fact", result, "Last operation should have test fact");
     }
-
 
     @Test
     public void shouldCallTheCatFactNinjaApiWithMockedApiServer() throws Exception {

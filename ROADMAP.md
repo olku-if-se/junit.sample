@@ -12,3 +12,4 @@
     - [x] What is used for JSON parsing?
     - [x] Find any REST API server for testing purposes (with Swagger/OpenAPI definition)
     - [x] Identify what can be used for Mocking REST API, e2e testing
+- [x] Provide the simplest version of the contact testing

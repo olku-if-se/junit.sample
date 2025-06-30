@@ -219,3 +219,15 @@ Cons:
 - https://github.com/OpenAPITools/openapi-generator
 - https://openapi-generator.tech/docs/installation
 - https://github.com/OpenAPITools/openapi-generator/blob/master/modules/openapi-generator-gradle-plugin/README.adoc
+
+### Step 9: Contract Testing
+
+**Fully Functional Framework, Heavy Lifting**:
+
+- framework: https://docs.pact.io/
+- https://github.com/pact-foundation/pact-jvm (Java Version)
+
+**Lightweight approach**:
+
+- Everit - JSON Schema Validator (https://github.com/everit-org/json-schema)
+
