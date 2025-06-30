@@ -51,8 +51,12 @@ sourceSets {
 
 dependencies {
     // Gosu Language dependencies
-    implementation 'org.gosu-lang.gosu:gosu-core:+'
-    testImplementation 'org.gosu-lang.gosu:gosu-test:+'
+    implementation('org.gosu-lang.gosu:gosu-core:+') {
+        exclude group: 'systems.manifold'
+    }
+    testImplementation('org.gosu-lang.gosu:gosu-test:+') {
+        exclude group: 'systems.manifold'
+    }
 
     // JUnit 5 dependencies
     testImplementation platform('org.junit:junit-bom:5.13.2')
@@ -65,6 +69,9 @@ dependencies {
 
     // Mocks, https://site.mockito.org/
     testImplementation "org.mockito:mockito-core:5.+"
+
+    // Manifold - is Gosu Core (latest: 2025.1.22, used: 2024.1.38)
+    implementation 'systems.manifold:manifold:+'
 }
 
 test {

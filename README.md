@@ -95,3 +95,32 @@ Known issues:
 
 https://plugins.gradle.org/plugin/org.gosu-lang.gosu
 https://github.com/gosu-lang/gradle-gosu-plugin
+
+### Step 7: Resolve Mockito and Manifold issues
+
+- We can solve it by forcing the Gradle to exclude transitive dependencies from Gosu Lang, and by including the specific
+  version by hands.
+
+```groovy
+dependencies {
+    // Gosu Language dependencies
+    implementation('org.gosu-lang.gosu:gosu-core:+') {
+        exclude group: 'systems.manifold'
+    }
+    testImplementation('org.gosu-lang.gosu:gosu-test:+') {
+        exclude group: 'systems.manifold'
+    }
+
+    // Mockito dependencies
+    /* ... */
+
+    // Manifold - is Gosu Core (latest: 2025.1.22, used: 2024.1.38)
+    implementation 'systems.manifold:manifold:+'
+}
+```
+
+How it resolves the issue?
+
+1. Uses the latest Manifold library;
+2. Forces IDE to load Manifold library after Mockito; (order of including the libraries in the build.gradle file matters
+   for IntelliJ IDE!)
