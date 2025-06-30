@@ -1,3 +1,18 @@
+- [Test Driven Development In Java, Junit and Mockito](#test-driven-development-in-java-junit-and-mockito)
+  - [Step 1: Create a new Java Project, IDE defaults](#step-1-create-a-new-java-project-ide-defaults)
+  - [Step 2: Upgrade the Gradle Wrapper](#step-2-upgrade-the-gradle-wrapper)
+  - [Step 3: Run All Tests Configuration in IDE](#step-3-run-all-tests-configuration-in-ide)
+  - [Step 4: Enable JaCoCo Code Coverage](#step-4-enable-jacoco-code-coverage)
+  - [Step 5: Optimize reporting and execution speed](#step-5-optimize-reporting-and-execution-speed)
+  - [Step 5: Activate Mocks](#step-5-activate-mocks)
+  - [Hidden Troubles](#hidden-troubles)
+  - [Step 6: Activate GOSU language support](#step-6-activate-gosu-language-support)
+  - [Step 7: Resolve Mockito and Manifold issues](#step-7-resolve-mockito-and-manifold-issues)
+  - [Step 8: Provide REST API Client Example with e2e Testing](#step-8-provide-rest-api-client-example-with-e2e-testing)
+  - [Step 9: Contract Testing](#step-9-contract-testing)
+  - [Troubleshooting and References](#troubleshooting-and-references)
+
+
 ## Test Driven Development In Java, Junit and Mockito
 
 ### Step 1: Create a new Java Project, IDE defaults
