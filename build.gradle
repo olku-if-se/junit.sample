@@ -72,6 +72,12 @@ dependencies {
 
     // Manifold - is Gosu Core (latest: 2025.1.22, used: 2024.1.38)
     implementation 'systems.manifold:manifold:+'
+
+    // Http Client (by default it will use the JDK HttpClient without JSON parsing)
+    implementation 'io.github.openfeign:feign-core:13.6'
+
+    // e2e, Test web server for HTTP tests
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 }
 
 test {

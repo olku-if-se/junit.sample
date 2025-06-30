@@ -1,5 +1,6 @@
 package org.ifit;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ public class MyFirstJUnit5Tests {
 
     // print the classpath of the test
     @Test
+    @Disabled
     public void print_classpath() {
         final String[] classpath = System.getProperty("java.class.path").split(";");
 

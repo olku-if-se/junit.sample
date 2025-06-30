@@ -39,7 +39,9 @@ public class LastOperationOnly implements Memory {
 
             @Override
             public String toString() {
-                return String.format("%s(%d, %d) == %s instance: #%s", operation(), a(), b(), result(), hashCode);
+                // return String.format("%s(%d, %d) == %s instance: #%s", operation(), a(), b(), result(), hashCode);
+                System.out.println("instance: #" + hashCode);
+                return String.format("%s(%d, %d) == %s", operation(), a(), b(), result());
             }
         };
 

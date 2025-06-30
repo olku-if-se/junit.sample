@@ -124,3 +124,98 @@ How it resolves the issue?
 1. Uses the latest Manifold library;
 2. Forces IDE to load Manifold library after Mockito; (order of including the libraries in the build.gradle file matters
    for IntelliJ IDE!)
+
+### Step 8: Provide REST API Client Example with e2e Testing
+
+- Feign (https://github.com/OpenFeign/feign) - Http Client
+- Jackson (https://github.com/FasterXML/jackson) - JSON Parser
+- MockWebServer (https://github.com/square/okhttp/tree/master/mockwebserver) - Mocking REST API, e2e testing
+
+**HTTP Client Library Configuration**:
+
+```java
+public class Example {
+    public static void main(String[] args) {
+        GitHub github = Feign.builder()
+                .client(new OkHttpClient())
+                .target(GitHub.class, "https://api.github.com");
+    }
+}
+
+// Alternative: Java 11 HttpClient
+GitHub github = Feign.builder()
+        .client(new Http2Client())
+        .target(GitHub.class, "https://api.github.com");
+```
+
+**JSON Parser Configuration**:
+
+JSON parser - Jackson (https://github.com/OpenFeign/feign/tree/master/jackson):
+
+```java
+public class Example {
+    public static void main(String[] args) {
+        GitHub github = Feign.builder()
+                .encoder(new JacksonEncoder())
+                .decoder(new JacksonDecoder())
+                .target(GitHub.class, "https://api.github.com");
+    }
+}
+```
+
+**Logsging Configuration**:
+
+```java
+public class Example {
+    public static void main(String[] args) {
+        GitHub github = Feign.builder()
+                .logger(new Slf4jLogger())
+                .logLevel(Level.FULL)
+                .target(GitHub.class, "https://api.github.com");
+    }
+}
+```
+
+**E2E Tests Configuration**:
+
+```groovy
+testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+```
+
+**Self-Hosted Mock Servers**:
+
+- https://github.com/stoplightio/prism
+- https://mockoon.com/cli/
+
+**Fake API**:
+
+https://catfact.ninja/#/
+
+Pros:
+
+- swagger/openapi definition available;
+
+Cons:
+
+- too simple to demonstrate all use-cases;
+
+---
+
+https://gorest.co.in/
+
+Pros:
+
+- easy login and delete of account, GitHub, Google or Microsoft;
+- GraphQL and REST API;
+- Many endpoints, including users, posts, comments, todos, and more;
+
+Cons:
+
+- advertising,
+- no Swagger/OpenAPI definition (but you can ask AI to generate one for you from web page).
+
+**Code Generation**:
+
+- https://github.com/OpenAPITools/openapi-generator
+- https://openapi-generator.tech/docs/installation
+- https://github.com/OpenAPITools/openapi-generator/blob/master/modules/openapi-generator-gradle-plugin/README.adoc
