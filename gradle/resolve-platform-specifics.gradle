@@ -1,0 +1,61 @@
+/**
+ * Usage:
+ *   resolvePlatformSpecifics("some.property.multi")
+ *
+ * Example in gradle.properties:
+ *   org.gradle.java.home.multi=windows:C:\\Java\\jdk-21,linux:/usr/lib/jvm/java-21
+ *
+ * This sets:
+ *   org.gradle.java.home = [resolved path]
+ */
+
+def resolvePlatformSpecifics = { String multiPropertyKey, String suffix = '.multi' ->
+    def osName = System.getProperty("os.name").toLowerCase()
+    def osKey = osName.contains("win") ? "windows" :
+            osName.contains("mac") ? "mac" :
+                    osName.contains("nix") || osName.contains("nux") ? "linux" : "unknown"
+
+    def keyToUse = multiPropertyKey.endsWith(suffix) ? multiPropertyKey : multiPropertyKey + suffix
+
+    def raw = project.findProperty(keyToUse) as String
+    if (!raw) {
+        logger.warn("⚠️ Property '$keyToUse' not defined. Ignored.")
+        return
+    }
+
+    def entries = raw.split(",")*.trim()
+
+    def invalidEntries = []
+    entries.eachWithIndex { entry, index ->
+        if (!entry || entry.startsWith("#")) return // Skip empty or comment-like
+        def parts = entry.split(":", 2)
+        if (parts.length != 2 || !parts[0] || !parts[1]) {
+            invalidEntries << "  Line ${index + 1}: '$entry'"
+        }
+    }
+
+    if (!invalidEntries.isEmpty()) {
+        throw new GradleException(
+                "❌ Invalid format in '${keyToUse}': expected entries like 'os:path'.\n" +
+                        "Please fix the following:\n" +
+                        invalidEntries.join("\n")
+        )
+    }
+
+    def selected = entries
+            .find { entry ->
+                def (key, value) = entry.split(":", 2)
+                key.equalsIgnoreCase(osKey) && new File(value).exists()
+            }
+
+    if (selected) {
+        def (os, value) = selected.split(":", 2)
+        def targetProperty = keyToUse.replaceFirst(/${suffix}$/, "")
+        println "✅ Resolved $targetProperty for $osKey: $value"
+        System.setProperty(targetProperty, value)
+    } else {
+        logger.warn("⚠️ No matching path found in '$keyToUse' for OS '$osKey'")
+    }
+}
+
+ext.resolvePlatformSpecifics = resolvePlatformSpecifics

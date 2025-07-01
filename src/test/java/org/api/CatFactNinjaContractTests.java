@@ -14,10 +14,10 @@ public class CatFactNinjaContractTests {
         // Given: Rest Api client for CatFactNinja;
         final CatFactNinja apiClient = ApiClientFactory.createCatFactNinjaClient();
 
-        // When: Getting the last operation with a catchy cat fact
+        // When: Getting a catchy cat fact
         final String result = apiClient.getRandomFact();
 
-        // Then: expected result is not null and contains a cat fact
+        // Then: expected result is not null
         assertNotNull(result, "Last operation should not be null");
 
         // And: the simplest contract testing (only the response body)

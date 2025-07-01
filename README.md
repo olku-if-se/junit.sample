@@ -231,3 +231,7 @@ Cons:
 
 - Everit - JSON Schema Validator (https://github.com/everit-org/json-schema)
 
+### Step 10: Solving Troubles And Topics to Self Study
+
+- https://medium.com/@vanniktech/writing-your-own-junit-rule-3df41997b10c
+- https://junit-pioneer.org/docs/default-locale-timezone/

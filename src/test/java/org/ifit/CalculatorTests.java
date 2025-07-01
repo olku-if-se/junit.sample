@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.DefaultLocale;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.internal.verification.Times;
@@ -69,6 +70,7 @@ public class CalculatorTests {
     }
 
     @Test
+    @DefaultLocale(language = "en", country = "SV")
     public void shouldDemonstrateLocaleHiddenDependencyInNumberFormatting() {
         // Given: Calculator with a mocked memory engine
         final Calculator calculator = new Calculator(_mockedLastOperationOnly);
@@ -77,7 +79,7 @@ public class CalculatorTests {
         calculator.divide(2, 3);
 
         // Then: expected saved operation in memory but no history
-        verify(_mockedLastOperationOnly).save("divide", 2, 3, "0,667");
+        verify(_mockedLastOperationOnly).save("divide", 2, 3, "0.667");
 
         // And: verify that history is not called and not saved due to mocks usage
         verify(_mockedLastOperationOnly, new Times(0)).history();

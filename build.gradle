@@ -10,6 +10,12 @@ plugins {
     id 'idea'
 }
 
+// helper scripts
+apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
+
+resolvePlatformSpecifics("org.gradle.java.home.multi")
+resolvePlatformSpecifics("org.gradle.java.installations.paths.multi")
+
 repositories {
     mavenCentral()
 }
@@ -26,6 +32,14 @@ version = '1.0-SNAPSHOT'
 description = 'Gosu Junit Gradle Project Example'
 
 // force Java 11 for project code (stay close to Guidewire environment)
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+        vendor.set(JvmVendorSpec.AMAZON)
+        //installationPath.set(file("${System.getProperty('user.home')}/.sdkman/candidates/java/11.0.20-amzn"))
+        // Adjust path as needed
+    }
+}
 java.toolchain.languageVersion = JavaLanguageVersion.of(11)
 compileJava.options.release = 11
 targetCompatibility = 11
@@ -67,11 +81,16 @@ dependencies {
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
+    // JUnit 5 extensions (latest: 2.3.0)
+    testImplementation 'org.junit-pioneer:junit-pioneer:+'
+
     // Mocks, https://site.mockito.org/
     testImplementation "org.mockito:mockito-core:5.+"
 
-    // Manifold - is Gosu Core (latest: 2025.1.22, used: 2024.1.38)
-    implementation 'systems.manifold:manifold:+'
+    // Manifold - is Gosu Core (latest: 2025.1.24)
+    // implementation 'systems.manifold:manifold:+'
+    compileOnly 'systems.manifold:manifold:2025.1.24'
+    implementation 'systems.manifold:manifold-rt:2025.1.24'
 
     // Http Client (by default it will use the JDK HttpClient without JSON parsing)
     implementation 'io.github.openfeign:feign-core:13.6'
