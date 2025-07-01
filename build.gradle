@@ -6,7 +6,6 @@ plugins {
     id 'java'
     id 'jacoco'
     id 'org.gosu-lang.gosu' version '+'
-    id "com.dorongold.task-tree" version "+"
     id 'idea'
 }
 
@@ -14,17 +13,10 @@ plugins {
 apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
 
 resolvePlatformSpecifics("org.gradle.java.home.multi")
-resolvePlatformSpecifics("org.gradle.java.installations.paths.multi")
+resolvePlatformSpecifics("org.gradle.java.installations.paths")
 
 repositories {
     mavenCentral()
-}
-
-if (hasProperty('buildScan')) {
-    buildScan {
-        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
-        termsOfServiceAgree = 'yes'
-    }
 }
 
 group = 'org.example'
@@ -36,14 +28,11 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11)
         vendor.set(JvmVendorSpec.AMAZON)
-        //installationPath.set(file("${System.getProperty('user.home')}/.sdkman/candidates/java/11.0.20-amzn"))
-        // Adjust path as needed
     }
+    targetCompatibility = 11
+    sourceCompatibility = 11
 }
-java.toolchain.languageVersion = JavaLanguageVersion.of(11)
 compileJava.options.release = 11
-targetCompatibility = 11
-sourceCompatibility = 11
 
 // Include Gosu source sets Into Compilation Process
 sourceSets {
@@ -65,12 +54,8 @@ sourceSets {
 
 dependencies {
     // Gosu Language dependencies
-    implementation('org.gosu-lang.gosu:gosu-core:+') {
-        exclude group: 'systems.manifold'
-    }
-    testImplementation('org.gosu-lang.gosu:gosu-test:+') {
-        exclude group: 'systems.manifold'
-    }
+    implementation('org.gosu-lang.gosu:gosu-core:+')
+    testImplementation('org.gosu-lang.gosu:gosu-test:+')
 
     // JUnit 5 dependencies
     testImplementation platform('org.junit:junit-bom:5.13.2')
@@ -87,11 +72,6 @@ dependencies {
     // Mocks, https://site.mockito.org/
     testImplementation "org.mockito:mockito-core:5.+"
 
-    // Manifold - is Gosu Core (latest: 2025.1.24)
-    // implementation 'systems.manifold:manifold:+'
-    compileOnly 'systems.manifold:manifold:2025.1.24'
-    implementation 'systems.manifold:manifold-rt:2025.1.24'
-
     // Http Client (by default it will use the JDK HttpClient without JSON parsing)
     implementation 'io.github.openfeign:feign-core:13.6'
 
@@ -105,9 +85,6 @@ dependencies {
 test {
     useJUnitPlatform()
 
-    // Use the number of available processors, or set a fixed number
-    //maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
-
     jacoco {
         enabled = true
         includes = ['**/*']
@@ -115,6 +92,7 @@ test {
 
     testLogging {
         events("failed")
+        showStandardStreams = true // show STDOUT and STDERR in the terminal output
     }
 
     finalizedBy(jacocoTestReport)
@@ -201,5 +179,13 @@ tasks.register('printTestClassPath') {
     doLast {
         def testClassPath = sourceSets.test.runtimeClasspath.asPath
         println "Test Classpath\n${testClassPath.split(';')*.trim().join('\n')}"
+    }
+}
+
+// build scanning should not ask for license agreement approve on each run
+if (hasProperty('buildScan')) {
+    buildScan {
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
     }
 }

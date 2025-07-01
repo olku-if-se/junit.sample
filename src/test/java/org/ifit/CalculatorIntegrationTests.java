@@ -7,7 +7,10 @@ import org.api.CatFactNinja;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.mockito.Mockito;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -76,7 +79,8 @@ public class CalculatorIntegrationTests {
     }
 
     @Test
-    public void shouldDoRealApiCallAndPrintRandomFact() throws Exception {
+    @Timeout(value = 5_000, unit = TimeUnit.MILLISECONDS)
+    public void shouldDoRealApiCallAndPrintRandomFact() {
         // Given: Calculator with real API client
         final Calculator calculator = new Calculator();
 

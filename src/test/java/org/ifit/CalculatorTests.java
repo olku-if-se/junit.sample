@@ -1,5 +1,7 @@
 package org.ifit;
 
+import org.BadExample;
+import org.GoodExample;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +72,7 @@ public class CalculatorTests {
     }
 
     @Test
-    @DefaultLocale(language = "en", country = "SV")
+    @DefaultLocale(language = "en", country = "US")
     public void shouldDemonstrateLocaleHiddenDependencyInNumberFormatting() {
         // Given: Calculator with a mocked memory engine
         final Calculator calculator = new Calculator(_mockedLastOperationOnly);

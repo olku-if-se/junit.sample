@@ -8,7 +8,6 @@ public class LastOperationOnly implements Memory {
 
     @Override
     public void save(String operation, int a, int b, String result) {
-        final String hashCode = String.valueOf(this.hashCode());
         final Instant now = Instant.now();
 
         final Record record = new Record() {
@@ -39,8 +38,6 @@ public class LastOperationOnly implements Memory {
 
             @Override
             public String toString() {
-                // return String.format("%s(%d, %d) == %s instance: #%s", operation(), a(), b(), result(), hashCode);
-                System.out.println("instance: #" + hashCode);
                 return String.format("%s(%d, %d) == %s", operation(), a(), b(), result());
             }
         };

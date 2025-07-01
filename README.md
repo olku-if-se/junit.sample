@@ -235,3 +235,15 @@ Cons:
 
 - https://medium.com/@vanniktech/writing-your-own-junit-rule-3df41997b10c
 - https://junit-pioneer.org/docs/default-locale-timezone/
+
+#### Run On GitHub CodeSpaces
+
+```bash
+sdk list java  # list available Java versions to install
+
+sdk install java 11.0.27-amzn # Make it Default!
+sdk install java 21.0.7-amzn
+
+# List the location of java
+ls -la /usr/local/sdkman/candidates/java
+```

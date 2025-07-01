@@ -1,6 +1,5 @@
 package org.ifit;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,14 +17,5 @@ public class MyFirstJUnit5Tests {
     public void second_test() {
         // Another test method in JUnit 5 style.
         assertTrue("This test should pass", true);
-    }
-
-    // print the classpath of the test
-    @Test
-    @Disabled
-    public void print_classpath() {
-        final String[] classpath = System.getProperty("java.class.path").split(";");
-
-        System.out.println("Classpath:\n" + String.join("\n", classpath));
     }
 }
