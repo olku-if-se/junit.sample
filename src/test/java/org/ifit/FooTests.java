@@ -1,6 +1,7 @@
 package org.ifit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 
 public class FooTests {
     @Test
@@ -13,5 +14,6 @@ public class FooTests {
 
         // Then: The result should be as expected
         assert "Hello, World!".equals(result) : "Expected greeting to be 'Hello, World!'";
+        Assertions.assertEquals("Hello, World!", result, "Expected greeting to be 'Hello, World!'");
     }
 }
