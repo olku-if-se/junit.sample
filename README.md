@@ -236,6 +236,10 @@ Cons:
 - https://medium.com/@vanniktech/writing-your-own-junit-rule-3df41997b10c
 - https://junit-pioneer.org/docs/default-locale-timezone/
 
+### Step 11: Gosu Language In Tests Writing
+
+Based on sample: https://github.com/gosu-lang/example-gradle-hybrid
+
 #### Run On GitHub CodeSpaces
 
 ```bash
@@ -247,3 +251,4 @@ sdk install java 21.0.7-amzn
 # List the location of java
 ls -la /usr/local/sdkman/candidates/java
 ```
+
