@@ -1,0 +1,61 @@
+trigger:
+- azure-pipelines  # Configure this to your main branch name
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: Gradle_Test_Ubuntu
+  displayName: 'Gradle Test on Ubuntu'
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  # Install sdkman and Java JDKs
+  - bash: |
+      # Install sdkman
+      curl -s "https://get.sdkman.io" | bash
+      source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+      # Confirm SDKMAN is installed
+      sdk version
+      
+      # Set auto answer to true
+      sed -i -e 's/sdkman_auto_answer=false/sdkman_auto_answer=true/g' $HOME/.sdkman/etc/config
+
+      # Install Java 11.0.27-amzn and make it default
+      echo "y" | sdk install java 11.0.27-amzn
+      
+      # Install Java 21.0.7-amzn
+      echo "y" | sdk install java 21.0.7-amzn
+      
+      # Set environment variables for both JDKs
+      JAVA_11_HOME=$(sdk home java 11.0.27-amzn)
+      JAVA_21_HOME=$(sdk home java 21.0.7-amzn)
+      
+      # Make these variables available to subsequent steps
+      echo "##vso[task.setvariable variable=JAVA_HOME_11_X64]$JAVA_11_HOME"
+      echo "##vso[task.setvariable variable=JAVA_HOME_21_X64]$JAVA_21_HOME"
+      echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_11_HOME"
+      
+      echo "Installed Java versions:"
+      echo "JDK 11 location: $JAVA_11_HOME"
+      echo "JDK 21 location: $JAVA_21_HOME"
+      
+      # Verify installations
+      echo "Current Java version (should be JDK 21 - default):"
+      java -version
+    displayName: 'Install sdkman and Java JDKs'
+
+  # Run tests on Ubuntu (Gradle runs with JDK 21, tests execute with JDK 11)
+  - script: |
+      chmod +x ./gradlew
+      ./gradlew test
+    displayName: 'Run tests (Ubuntu)'
+  
+  # Publish test results
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/TEST-*.xml'
+      failTaskOnFailedTests: true
+    condition: succeededOrFailed()
