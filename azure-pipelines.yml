@@ -1,5 +1,19 @@
 trigger:
 - azure-pipelines  # Configure this to your main branch name
+- main
+
+# Enable PR trigger
+pr:
+- main
+
+# Schedule trigger - 8am daily
+schedules:
+- cron: '0 8 * * *'
+  displayName: 'Daily 8am build'
+  branches:
+    include:
+    - main
+  always: true
 
 pool:
   vmImage: 'ubuntu-latest'
