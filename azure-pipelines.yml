@@ -9,10 +9,22 @@ jobs:
   displayName: 'Gradle Test on Ubuntu'
   pool:
     vmImage: 'ubuntu-latest'
+  variables:
+    GRADLE_USER_HOME: $(Pipeline.Workspace)/.gradle
   steps:
-  # Install sdkman and Java JDKs
+  # Cache Gradle packages
+  - task: Cache@2
+    displayName: 'Cache Gradle packages'
+    inputs:
+      key: 'gradle | "$(Agent.OS)" | **/build.gradle'
+      restoreKeys: |
+        gradle | "$(Agent.OS)"
+        gradle
+      path: $(GRADLE_USER_HOME)
+      cacheHitVar: GRADLE_CACHE_RESTORED
+
+  # Install SDKMAN Tool
   - bash: |
-      # Install sdkman
       curl -s "https://get.sdkman.io" | bash
       source "$HOME/.sdkman/bin/sdkman-init.sh"
 
@@ -21,6 +33,19 @@ jobs:
       
       # Set auto answer to true
       sed -i -e 's/sdkman_auto_answer=false/sdkman_auto_answer=true/g' $HOME/.sdkman/etc/config
+
+  # Cache SDKMAN and Java JDKs
+  - task: Cache@2
+    displayName: 'Cache SDKMAN and Java JDKs'
+    inputs:
+      key: 'sdkman | "$(Agent.OS)" | "11.0.27-amzn" | "21.0.7-amzn"'
+      path: /home/vsts/.sdkman/candidates/java
+      cacheHitVar: SDKMAN_CACHE_RESTORED
+      
+  # Install Java JDKs
+  - bash: |
+      # Make SDK tool available
+      source "$HOME/.sdkman/bin/sdkman-init.sh"
 
       # Install Java 11.0.27-amzn and make it default
       echo "y" | sdk install java 11.0.27-amzn
@@ -42,14 +67,23 @@ jobs:
       echo "JDK 21 location: $JAVA_21_HOME"
       
       # Verify installations
-      echo "Current Java version (should be JDK 21 - default):"
+      echo "Current Java version (should be using JDK 11 now):"
       java -version
-    displayName: 'Install sdkman and Java JDKs'
+    displayName: 'Install Java JDKs'
 
   # Run tests on Ubuntu (Gradle runs with JDK 21, tests execute with JDK 11)
   - script: |
       chmod +x ./gradlew
-      ./gradlew test
+      
+      # Verify Java is available
+      echo "Verifying JAVA_HOME: $JAVA_HOME"
+      java -version
+      
+      # Use gradle cache directory
+      export GRADLE_USER_HOME=$(GRADLE_USER_HOME)
+      
+      # Run Gradle tests executor
+      ./gradlew test --no-daemon --rerun
     displayName: 'Run tests (Ubuntu)'
   
   # Publish test results
