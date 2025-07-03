@@ -18,7 +18,7 @@ class StarshipTest {
         double distance = 0;
         
         //WHEN: plan the trip
-        double result = starship.calculate(distance);
+        double result = Calculator.calculate(distance, starship);
         
         //THEN: expect calculated travel time
         Assertions.assertEquals(0, result, "Expected 0");
@@ -32,10 +32,10 @@ class StarshipTest {
         double distance = 750;
 
         //WHEN: plan the trip
-        double result = starship.calculate(distance);
+        double result = Calculator.calculate(distance, starship);
 
         //THEN: expect calculated travel time to be 10 hours
-        Assertions.assertEquals(10, result, "Expected 10 hours for 750 MGLT at 75 MGLT speed");
+        Assertions.assertEquals(10, result, "Expected 10 hours for 750 distance at 75 MGLT speed");
     }
 
     @Test
@@ -49,7 +49,7 @@ class StarshipTest {
 
         //THEN: expect an exception or a specific behavior (e.g., return -1 or throw an exception)
         Throwable ex = Assertions.assertThrows(IllegalArgumentException.class, () -> {
-            double result = starship.calculate(distance);
+            double result = Calculator.calculate(distance, starship);
         }, "Expected IllegalArgumentException for unknown MGLT");
         Assertions.assertEquals("Invalid Speed  NaN or Distance value " + distance, ex.getMessage(), "Expected specific error message for unknown MGLT");
 
@@ -71,15 +71,15 @@ class StarshipTest {
     public void shouldRejectInvalidInputFromUI() {
         //GIVEN: a starship and invalid distance input
         Starship starship = new Starship(100);
-        String invalidDistance = "invalid"; // or null
 
         //WHEN: trying to calculate travel time with invalid distance
         try {
-            starship.calculate(Double.parseDouble(invalidDistance));
+            double result = Calculator.calculate(Double.NaN, starship);
             Assertions.fail("Expected an exception for invalid distance input");
-        } catch (NumberFormatException e) {
+        } catch (Exception e) {
             //THEN: expect a NumberFormatException to be thrown
-            Assertions.assertTrue(e.getMessage().contains("For input string"));
+            Assertions.assertEquals("Invalid Speed  100.0 or Distance value " + Double.NaN, e.getMessage(),
+                    "Expected specific error message for invalid distance");
         }
     }
 
@@ -87,12 +87,14 @@ class StarshipTest {
     @DisplayName("Interstellar long-haul distance calculation")
     public void shouldCalculateInterstellarLongHaul() {
         //GIVEN: a starship with MGLT value 1000 and a long distance of 1,000,000
-
+        Starship starship = new Starship(1000);
+        double distance = 1000000;
 
         //WHEN: plan the trip
-
+        double result = Calculator.calculate(distance, starship);
 
         //THEN: expect calculated travel time to be 1000 hours
+        Assertions.assertEquals(1000, result, "Expected 1000 hours for 1000000 distance at 1000 MGLT speed");
     }
 
     @Test
