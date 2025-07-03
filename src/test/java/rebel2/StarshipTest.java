@@ -1,11 +1,13 @@
 package rebel2;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class StarshipTest {
 
     @Test
+    @DisplayName("Zero-distance travel should return zero for any ship")
     public void shouldReturnZeroForZeroDistanceForAnyShip() {
         //GIVEN: a starship and a distance we want to travel
         Starship starship = new Starship(100);
@@ -19,6 +21,7 @@ class StarshipTest {
     }
 
     @Test
+    @DisplayName("Standard route calculation for a starship with MGLT value 75 and distance 750")
     public void shouldCalculateStandardRoute() {
         //GIVEN: a starship has MGLT value 75, and distance is 750
         Starship starship = new Starship(75);
@@ -29,6 +32,72 @@ class StarshipTest {
 
         //THEN: expect calculated travel time to be 10 hours
         Assertions.assertEquals(10, result, "Expected 10 hours for 750 MGLT at 75 MGLT speed");
+    }
+
+    @Test
+    @DisplayName("Ship with unknown MGLT")
+    public void shouldHandleUnknownMGLT() {
+        //GIVEN: a starship with unknown MGLT
+
+
+        //WHEN: plan the trip
+
+
+        //THEN: expect an exception or a specific behavior (e.g., return -1 or throw an exception)
+
+    }
+    @Test
+    @DisplayName("A ship has MGLT:unknown → you must decide how to handle this throw, return null, etc.")
+    public void shouldHandleUnknownMGLTGracefully() {
+        //GIVEN: a starship with unknown MGLT
+
+
+        //WHEN: plan the trip with a distance of 1000
+
+
+        //THEN: expect an exception or a specific behavior (e.g., return -1 or throw an exception)
+    }
+
+    @Test
+    @DisplayName("Invalid input from UI should reject with clear error handling")
+    public void shouldRejectInvalidInputFromUI() {
+        //GIVEN: a starship and invalid distance input
+        Starship starship = new Starship(100);
+        String invalidDistance = "invalid"; // or null
+
+        //WHEN: trying to calculate travel time with invalid distance
+        try {
+            starship.calculate(Double.parseDouble(invalidDistance));
+            Assertions.fail("Expected an exception for invalid distance input");
+        } catch (NumberFormatException e) {
+            //THEN: expect a NumberFormatException to be thrown
+            Assertions.assertTrue(e.getMessage().contains("For input string"));
+        }
+    }
+
+    @Test
+    @DisplayName("Interstellar long-haul distance calculation")
+    public void shouldCalculateInterstellarLongHaul() {
+        //GIVEN: a starship with MGLT value 1000 and a long distance of 1,000,000
+
+
+        //WHEN: plan the trip
+
+
+        //THEN: expect calculated travel time to be 1000 hours
+    }
+
+    @Test
+    @DisplayName("Compare ships to find the fastest starship for a given distance")
+    public void shouldCompareShipsForFastestStarship() {
+        //GIVEN: a list of starships with different MGLT values and a distance
+
+
+        //WHEN: comparing ships to find the fastest one
+
+
+        //THEN: expect the fastest ship to be the one with MGLT 200
+
     }
 
 }
