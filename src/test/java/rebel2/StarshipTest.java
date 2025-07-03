@@ -4,7 +4,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Random;
+
 class StarshipTest {
+
+    Random random = new Random(100);
 
     @Test
     @DisplayName("Zero-distance travel should return zero for any ship")
@@ -38,12 +42,16 @@ class StarshipTest {
     @DisplayName("Ship with unknown MGLT")
     public void shouldHandleUnknownMGLT() {
         //GIVEN: a starship with unknown MGLT
-
+        Starship starship = new Starship(Double.NaN); // or use a sentinel value like -1
+        double distance = random.nextDouble(); // arbitrary distance
 
         //WHEN: plan the trip
 
-
         //THEN: expect an exception or a specific behavior (e.g., return -1 or throw an exception)
+        Throwable ex = Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            double result = starship.calculate(distance);
+        }, "Expected IllegalArgumentException for unknown MGLT");
+        Assertions.assertEquals("Invalid Speed  NaN or Distance value " + distance, ex.getMessage(), "Expected specific error message for unknown MGLT");
 
     }
     @Test
