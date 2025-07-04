@@ -90,6 +90,6 @@ public class CalculatorIntegrationTests {
 
         // Then: expected result is not null and contains a cat fact
         assertNotNull(result, "Last operation should not be null");
-        System.out.println(result); // Print the result to console
+        //System.out.println(result); // Print the result to console
     }
 }
