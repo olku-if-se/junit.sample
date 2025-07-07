@@ -125,7 +125,13 @@ def getGradleExecutionCommand() {
 def generateMermaidDiagram(taskGraph) {
     def content = new StringBuilder()
     content.append("\n```mermaid\n")
-    content.append("flowchart TD\n")
+    
+    // Get executed tasks from the task graph first to determine orientation
+    def executedTasks = taskGraph.allTasks.toList()
+    
+    // Use LR orientation for small graphs (< 5 tasks), TD for larger ones
+    def graphOrientation = executedTasks.size() < 5 ? "LR" : "TD"
+    content.append("graph ${graphOrientation}\n")
     
     // Collect all tasks from all projects
     def allTasks = []
@@ -135,8 +141,7 @@ def generateMermaidDiagram(taskGraph) {
         }
     }
     
-    // Get executed tasks from the task graph
-    def executedTasks = taskGraph.allTasks.toList()
+    // executedTasks already defined above for orientation decision
     def nonExecutedTasks = allTasks.findAll { !executedTasks.contains(it) }
     
     // Get requested tasks (the ones explicitly requested by user)
@@ -154,9 +159,9 @@ def generateMermaidDiagram(taskGraph) {
     // Track processed dependencies to avoid duplicates
     def processedDependencies = new HashSet()
     
-    // Add start and stop nodes
-    content.append("    Start@{ shape: circle, label: \"Start\" }\n")
-    content.append("    Stop@{ shape: dbl-circ, label: \"Stop\" }\n\n")
+    // Add start and stop nodes (compatible with Mermaid v10.9.1)
+    content.append("    Start((Start))\n")
+    content.append("    Stop(((Stop)))\n\n")
     
     // Create subgraph for executed tasks with execution order
     if (!executedTasks.isEmpty()) {
@@ -168,12 +173,8 @@ def generateMermaidDiagram(taskGraph) {
             def taskLabel = task.path
             def isRequested = requestedTasks.contains(task)
             
-            // Use green background for requested tasks
-            if (isRequested) {
-                content.append("        ${taskId}[\"${taskLabel}\"]:::requested\n")
-            } else {
-                content.append("        ${taskId}[\"${taskLabel}\"]\n")
-            }
+            // Mark requested tasks for styling (will be styled later)
+            content.append("        ${taskId}[\"${taskLabel}\"]\n")
         }
         content.append("    end\n\n")
         
@@ -203,7 +204,7 @@ def generateMermaidDiagram(taskGraph) {
         nonExecutedTasks.sort { it.path }.each { task ->
             def taskId = sanitizeTaskId(task.path)
             def taskLabel = task.path
-            content.append("        ${taskId}[\"${taskLabel}\"]:::available\n")
+            content.append("        ${taskId}[\"${taskLabel}\"]\n")
         }
         content.append("    end\n\n")
     }
@@ -252,10 +253,24 @@ def generateMermaidDiagram(taskGraph) {
         }
     }
     
-    // Add CSS styling
+    // Add CSS styling (compatible with Mermaid v10.9.1)
     content.append("\n    %% Styling\n")
     content.append("    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000\n")
     content.append("    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666\n")
+    
+    // Apply styling to requested tasks
+    requestedTasks.each { task ->
+        def taskId = sanitizeTaskId(task.path)
+        content.append("    class ${taskId} requested\n")
+    }
+    
+    // Apply styling to available tasks (if shown)
+    if (!nonExecutedTasks.isEmpty() && nonExecutedTasks.size() <= 15) {
+        nonExecutedTasks.each { task ->
+            def taskId = sanitizeTaskId(task.path)
+            content.append("    class ${taskId} available\n")
+        }
+    }
     
     content.append("```\n\n")
     content.append("**Legend:**\n")

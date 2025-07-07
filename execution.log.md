@@ -440,7 +440,7 @@ gradle build -Duser.variant= -Dfile.encoding=windows-1252 -Duser.country=US -Dus
 ## Task Graph
 
 ```mermaid
-flowchart TB
+flowchart BT
     Start@{ shape: circle, label: "Start" }
     Stop@{ shape: dbl-circ, label: "Stop" }
 
@@ -484,6 +484,183 @@ flowchart TB
     %% Styling
     classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000
     classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666
+```
+
+**Legend:**
+- 🚀 **Executed Tasks**: Tasks that will run in this execution (in execution order)
+- 📋 **Available Tasks**: Other tasks available but not executed
+- 🟢 **Green Background**: Tasks explicitly requested by user
+- `-->|Step N|` : Execution order (solid arrows with step numbers)
+- `-.->|depends on|` : Task dependencies (dashed arrows)
+- ⭕ **Start/Stop**: Execution flow markers
+
+**Summary:**
+- **Executed Tasks**: 14
+- **Available Tasks**: 48
+- **Dependencies**: 2
+- **Projects**: 1
+
+
+--------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------
+
+# Gradle Execution - 2025-07-07 15:25:32
+
+## Command
+```bash
+gradle prepareKotlinBuildScriptModel -Porg.gradle.kotlin.dsl.provider.cid=456739609230400 -Pkotlin.mpp.enableIntransitiveMetadataConfiguration=true -Didea.active=true -Duser.variant= -Didea.resolveSourceSetDependencies=true -Dfile.encoding=windows-1252 -Didea.version=2024.1.5 -Duser.language=en -Didea.sync.active=true -Duser.country=US -Didea.vendor.name=JetBrains -Didea.gradle.download.sources=false --parallel --configure-on-demand
+```
+
+## Task Graph
+
+```mermaid
+flowchart TD
+    Start@{ shape: circle, label: "Start" }
+    Stop@{ shape: dbl-circ, label: "Stop" }
+
+    subgraph executed ["🚀 Executed Tasks (Execution Order)"]
+        direction TB
+        prepareKotlinBuildScriptModel[":prepareKotlinBuildScriptModel"]:::requested
+    end
+
+    Start -->|"Step 1"| prepareKotlinBuildScriptModel
+    prepareKotlinBuildScriptModel -->|"Complete"| Stop
+
+
+    %% Styling
+    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000
+    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666
+```
+
+**Legend:**
+- 🚀 **Executed Tasks**: Tasks that will run in this execution (in execution order)
+- 📋 **Available Tasks**: Other tasks available but not executed
+- 🟢 **Green Background**: Tasks explicitly requested by user
+- `-->|Step N|` : Execution order (solid arrows with step numbers)
+- `-.->|depends on|` : Task dependencies (dashed arrows)
+- ⭕ **Start/Stop**: Execution flow markers
+
+**Summary:**
+- **Executed Tasks**: 1
+- **Available Tasks**: 48
+- **Dependencies**: 0
+- **Projects**: 1
+
+
+--------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------
+
+# Gradle Execution - 2025-07-07 15:39:23
+
+## Command
+```bash
+gradle tasks --all -Duser.variant= -Dfile.encoding=windows-1252 -Duser.country=US -Duser.language=en --parallel --configure-on-demand
+```
+
+## Task Graph
+
+```mermaid
+graph TD
+    Start((Start))
+    Stop(((Stop)))
+
+    subgraph executed ["🚀 Executed Tasks (Execution Order)"]
+        direction TB
+        tasks[":tasks"]
+    end
+
+    Start -->|"Step 1"| tasks
+    tasks -->|"Complete"| Stop
+
+
+    %% Styling
+    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000
+    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666
+    class tasks requested
+```
+
+**Legend:**
+- 🚀 **Executed Tasks**: Tasks that will run in this execution (in execution order)
+- 📋 **Available Tasks**: Other tasks available but not executed
+- 🟢 **Green Background**: Tasks explicitly requested by user
+- `-->|Step N|` : Execution order (solid arrows with step numbers)
+- `-.->|depends on|` : Task dependencies (dashed arrows)
+- ⭕ **Start/Stop**: Execution flow markers
+
+**Summary:**
+- **Executed Tasks**: 1
+- **Available Tasks**: 48
+- **Dependencies**: 0
+- **Projects**: 1
+
+
+--------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------
+
+# Gradle Execution - 2025-07-07 15:39:48
+
+## Command
+```bash
+gradle build -Duser.variant= -Dfile.encoding=windows-1252 -Duser.country=US -Duser.language=en --rerun-tasks --parallel --configure-on-demand
+```
+
+## Task Graph
+
+```mermaid
+graph TD
+    Start((Start))
+    Stop(((Stop)))
+
+    subgraph executed ["🚀 Executed Tasks (Execution Order)"]
+        direction TB
+        compileJava[":compileJava"]
+        compileGosu[":compileGosu"]
+        processResources[":processResources"]
+        classes[":classes"]
+        jar[":jar"]
+        assemble[":assemble"]
+        compileTestJava[":compileTestJava"]
+        compileTestGosu[":compileTestGosu"]
+        processTestResources[":processTestResources"]
+        testClasses[":testClasses"]
+        test[":test"]
+        jacocoTestReport[":jacocoTestReport"]
+        check[":check"]
+        build[":build"]
+    end
+
+    Start -->|"Step 1"| compileJava
+    compileJava -->|"Step 2"| compileGosu
+    compileGosu -->|"Step 3"| processResources
+    processResources -->|"Step 4"| classes
+    classes -->|"Step 5"| jar
+    jar -->|"Step 6"| assemble
+    assemble -->|"Step 7"| compileTestJava
+    compileTestJava -->|"Step 8"| compileTestGosu
+    compileTestGosu -->|"Step 9"| processTestResources
+    processTestResources -->|"Step 10"| testClasses
+    testClasses -->|"Step 11"| test
+    test -->|"Step 12"| jacocoTestReport
+    jacocoTestReport -->|"Step 13"| check
+    check -->|"Step 14"| build
+    build -->|"Complete"| Stop
+
+    jar -.->|"depends on"| assemble
+    test -.->|"finalizes"| jacocoTestReport
+
+    %% Styling
+    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000
+    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666
+    class build requested
 ```
 
 **Legend:**
