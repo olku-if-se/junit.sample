@@ -45,3 +45,6 @@ bin/
 *.log
 *.tmp
 *.~*~
+
+# Execution Graph
+execution.log.md

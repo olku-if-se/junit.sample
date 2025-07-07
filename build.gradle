@@ -11,6 +11,7 @@ plugins {
 
 // helper scripts
 apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
+apply from: "$rootDir/gradle/task-graph-publisher.gradle"
 
 resolvePlatformSpecifics("org.gradle.java.home.multi")
 resolvePlatformSpecifics("org.gradle.java.installations.paths")
