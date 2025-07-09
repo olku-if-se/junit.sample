@@ -1,0 +1,101 @@
+// Verification script to test sources and javadoc resolution
+// Run with: ./gradlew -b gradle/verify-sources-javadoc.gradle verifySourcesJavadoc
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    // Default configuration - only resolves main artifacts
+    defaultDeps
+    
+    // Enhanced configuration - explicitly includes sources and javadoc
+    enhancedDeps {
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+        }
+    }
+    
+    // Sources configuration
+    sourcesDeps {
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.SOURCES))
+        }
+    }
+    
+    // Javadoc configuration
+    javadocDeps {
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.JAVADOC))
+        }
+    }
+}
+
+dependencies {
+    // Test with OkHttp which we know has sources and javadoc
+    defaultDeps 'com.squareup.okhttp3:okhttp:4.12.0'
+    enhancedDeps 'com.squareup.okhttp3:okhttp:4.12.0'
+    sourcesDeps 'com.squareup.okhttp3:okhttp:4.12.0'
+    javadocDeps 'com.squareup.okhttp3:okhttp:4.12.0'
+}
+
+tasks.register("verifySourcesJavadoc") {
+    group = "verification"
+    description = "Verify sources and javadoc resolution behavior"
+    
+    doLast {
+        println "\n=== VERIFICATION RESULTS ==="
+        
+        println "\n1. DEFAULT CONFIGURATION (main JARs only):"
+        configurations.defaultDeps.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            println "  - ${artifact.file.name} (${artifact.file.length()} bytes)"
+        }
+        
+        println "\n2. ENHANCED CONFIGURATION (should be same as default):"
+        configurations.enhancedDeps.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            println "  - ${artifact.file.name} (${artifact.file.length()} bytes)"
+        }
+        
+        println "\n3. SOURCES CONFIGURATION:"
+        try {
+            configurations.sourcesDeps.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                println "  - ${artifact.file.name} (${artifact.file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  - ERROR: ${e.message}"
+        }
+        
+        println "\n4. JAVADOC CONFIGURATION:"
+        try {
+            configurations.javadocDeps.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                println "  - ${artifact.file.name} (${artifact.file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  - ERROR: ${e.message}"
+        }
+        
+        println "\n5. MANUAL RESOLUTION TEST (like in your script):"
+        def depConf = configurations.detachedConfiguration(
+            dependencies.create("com.squareup.okhttp3:okhttp:4.12.0@pom"),
+            dependencies.create("com.squareup.okhttp3:okhttp:4.12.0:sources@jar"),
+            dependencies.create("com.squareup.okhttp3:okhttp:4.12.0:javadoc@jar")
+        )
+        try {
+            depConf.resolve().each { file ->
+                println "  - ${file.name} (${file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  - ERROR: ${e.message}"
+        }
+        
+        println "\n=== CONCLUSION ==="
+        println "If sources/javadoc are missing from sections 3-5, it indicates"
+        println "that Gradle's default resolution doesn't include them automatically."
+    }
+}

@@ -12,11 +12,16 @@ plugins {
 // helper scripts
 apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
 apply from: "$rootDir/gradle/task-graph-publisher.gradle"
+apply from: "$rootDir/gradle/offline-local-maven-repo.gradle"
 
 resolvePlatformSpecifics("org.gradle.java.home.multi")
 resolvePlatformSpecifics("org.gradle.java.installations.paths")
 
+def localRepoPath = System.getenv('LOCAL_M2_REPO') ?: "${rootDir}/repository"
+println "Using local Maven repository at: $localRepoPath"
+
 repositories {
+    maven { url project.file(localRepoPath) }
     mavenCentral()
 }
 
@@ -81,6 +86,75 @@ dependencies {
 
     // JSON Schema validation (used for JSON validation and contract testing)
     testImplementation 'com.github.erosb:everit-json-schema:1.14.6'
+}
+
+// Task to verify sources and javadoc resolution behavior
+tasks.register("verifySourcesJavadoc") {
+    group = "verification"
+    description = "Verify sources and javadoc resolution behavior for dependencies"
+
+    doLast {
+        println "\n=== VERIFICATION: Sources and Javadoc Resolution ==="
+
+        // Test with OkHttp which we know has sources and javadoc published
+        def testDependency = "com.squareup.okhttp3:okhttp:4.12.0"
+        println "\nTesting dependency: $testDependency"
+
+        println "\n1. MANUAL RESOLUTION TEST (current script approach):"
+        def depConf = configurations.detachedConfiguration(
+                dependencies.create("${testDependency}@pom"),
+                dependencies.create("${testDependency}:sources@jar"),
+                dependencies.create("${testDependency}:javadoc@jar")
+        )
+        try {
+            depConf.resolve().each { file ->
+                println "  ✓ ${file.name} (${file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  ✗ ERROR: ${e.message}"
+        }
+
+        println "\n2. GRADLE VARIANT-AWARE RESOLUTION TEST:"
+
+        // Test sources resolution using Gradle's variant-aware dependency resolution
+        def sourcesConf = configurations.detachedConfiguration()
+        sourcesConf.attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.SOURCES))
+        }
+        sourcesConf.dependencies.add(dependencies.create(testDependency))
+
+        try {
+            sourcesConf.resolve().each { file ->
+                println "  ✓ SOURCES: ${file.name} (${file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  ✗ SOURCES ERROR: ${e.message}"
+        }
+
+        // Test javadoc resolution
+        def javadocConf = configurations.detachedConfiguration()
+        javadocConf.attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.JAVADOC))
+        }
+        javadocConf.dependencies.add(dependencies.create(testDependency))
+
+        try {
+            javadocConf.resolve().each { file ->
+                println "  ✓ JAVADOC: ${file.name} (${file.length()} bytes)"
+            }
+        } catch (Exception e) {
+            println "  ✗ JAVADOC ERROR: ${e.message}"
+        }
+
+        println "\n=== CONCLUSION ==="
+        println "If you see errors above, it confirms that Gradle's default"
+        println "dependency resolution doesn't automatically include sources/javadoc."
+        println "The stageDependencies task needs to be enhanced to properly resolve these artifacts."
+    }
 }
 
 test {
@@ -190,3 +264,4 @@ if (hasProperty('buildScan')) {
         termsOfServiceAgree = 'yes'
     }
 }
+

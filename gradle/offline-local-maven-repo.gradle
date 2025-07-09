@@ -1,0 +1,142 @@
+/* Prepare for Offline Mode */
+
+// This mapping defines the output dir of Maven artifacts (group/artifact/version layout)
+def getMavenArtifactPath(String group, String artifact, String version) {
+    def localRepoPath = System.getenv('LOCAL_M2_REPO') ?: "${rootDir}/repository"
+    return file("${localRepoPath}/${group.replace('.', '/')}/${artifact}/${version}")
+}
+
+// Task to copy dependencies from Gradle cache to local Maven repo dir
+tasks.register("stageDependencies") {
+    group = "dependency management"
+    description = "Resolve and copy all dependencies into local Maven repo"
+
+    doLast {
+        def localRepoPath = System.getenv('LOCAL_M2_REPO') ?: "${rootDir}/repository"
+        def localRepoDir = file(localRepoPath)
+        if (!localRepoDir.exists() && !localRepoDir.mkdirs()) {
+            throw new GradleException("Failed to create local Maven repository directory: $localRepoPath")
+        }
+        logger.info "Staging dependencies to local Maven repo at: $localRepoPath"
+        
+        // Create a separate repository configuration for artifact resolution
+        // This ensures we check remote repositories for sources/javadoc even if main JAR exists locally
+        def remoteRepos = project.repositories.matching { repo ->
+            repo.name != 'maven' || !repo.url.toString().contains('repository')
+        }
+
+        configurations.findAll { it.canBeResolved }.each { configuration ->
+            logger.info "Resolving configuration: ${configuration.name}"
+            try {
+                configuration.resolve()
+
+                configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    def group = artifact.moduleVersion.id.group
+                    def name = artifact.name
+                    def version = artifact.moduleVersion.id.version
+                    def classifier = artifact.classifier ? "-${artifact.classifier}" : ""
+                    def artifactDir = getMavenArtifactPath(group, name, version)
+
+                    if (!artifactDir.exists() && !artifactDir.mkdirs()) {
+                        throw new GradleException("Failed to create directory: $artifactDir")
+                    }
+
+                    // Copy main artifact
+                    def artifactFile = artifact.file
+                    def targetFileName = "${name}-${version}${classifier}.${artifact.extension}"
+                    def targetFile = new File(artifactDir, targetFileName)
+                    if (!targetFile.exists()) {
+                        logger.info "Copying artifact $artifactFile to $targetFile"
+                        project.copy {
+                            from artifactFile
+                            into artifactDir
+                        }
+                        if (!targetFile.exists() || targetFile.length() == 0) {
+                            throw new GradleException("Failed to copy artifact to $targetFile")
+                        }
+                    }
+
+                    // Resolve and copy POM, sources, and Javadoc using remote-first approach
+                    resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+                }
+            } catch (Exception e) {
+                logger.warn "Warning: Could not resolve configuration ${configuration.name}: ${e.message}"
+            }
+        }
+
+        logger.info "Dependency staging finished."
+    }
+}
+
+// Helper method to resolve additional artifacts (POM, sources, javadoc) with remote-first strategy
+def resolveAndCopyAdditionalArtifacts(String group, String name, String version, File artifactDir) {
+    // Strategy 1: Try individual artifact resolution with remote repositories
+    ['@pom', ':sources@jar', ':javadoc@jar'].each { classifier ->
+        try {
+            def depConf = configurations.detachedConfiguration()
+            // Temporarily override repositories to prioritize remote ones
+            depConf.resolutionStrategy.eachDependency { details ->
+                // Force resolution from remote repositories
+            }
+            
+            def dependency = dependencies.create("${group}:${name}:${version}${classifier}")
+            depConf.dependencies.add(dependency)
+            
+            depConf.resolve().each { file ->
+                def target = new File(artifactDir, file.name)
+                if (!target.exists()) {
+                    logger.info "Copying additional artifact: $file to $target"
+                    project.copy {
+                        from file
+                        into artifactDir
+                    }
+                    if (!target.exists() || target.length() == 0) {
+                        logger.warn "Failed to copy $file to $target"
+                    } else {
+                        logger.info "Successfully copied ${file.name} (${target.length()} bytes)"
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn "Could not resolve ${group}:${name}:${version}${classifier}: ${e.message}"
+        }
+    }
+    
+    // Strategy 2: Try Gradle's variant-aware resolution for sources and javadoc
+    resolveVariantArtifacts(group, name, version, artifactDir, 'sources')
+    resolveVariantArtifacts(group, name, version, artifactDir, 'javadoc')
+}
+
+// Helper method to resolve artifacts using Gradle's variant-aware dependency resolution
+def resolveVariantArtifacts(String group, String name, String version, File artifactDir, String type) {
+    try {
+        def conf = configurations.detachedConfiguration()
+        conf.attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            if (type == 'sources') {
+                attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.SOURCES))
+            } else if (type == 'javadoc') {
+                attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.JAVADOC))
+            }
+        }
+        
+        conf.dependencies.add(dependencies.create("${group}:${name}:${version}"))
+        
+        conf.resolve().each { file ->
+            def target = new File(artifactDir, file.name)
+            if (!target.exists()) {
+                logger.info "Copying ${type} artifact: $file to $target"
+                project.copy {
+                    from file
+                    into artifactDir
+                }
+                if (target.exists() && target.length() > 0) {
+                    logger.info "Successfully copied ${type}: ${file.name} (${target.length()} bytes)"
+                }
+            }
+        }
+    } catch (Exception e) {
+        logger.debug "Variant-aware resolution failed for ${group}:${name}:${version} ${type}: ${e.message}"
+    }
+}

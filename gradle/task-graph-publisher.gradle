@@ -28,10 +28,10 @@ def logTaskGraphExecution(taskGraph) {
     
     def executedTasksCount = taskGraph.allTasks.size()
     println "\n" + "="*80
-    println "EXECUTION LOGGED TO: ${logFile.absolutePath}"
+    println "EXECUTION: ${logFile.absolutePath}"
     println "TIMESTAMP: ${timestamp}"
-    println "COMMAND: ${executionCommand}"
-    println "EXECUTED TASKS: ${executedTasksCount}"
+    println "RUN ON CI: ${executionCommand}"
+    println "RUN TASKS: ${executedTasksCount}"
     println "="*80 + "\n"
 }
 
@@ -60,7 +60,7 @@ ${separator}
  */
 def getGradleExecutionCommand() {
     def startParameter = gradle.startParameter
-    def command = "gradle"
+    def command = "gradlew"
     
     // Add task names
     if (startParameter.taskNames) {
