@@ -1,4 +1,5 @@
 /* Prepare for Offline Mode */
+def localRepoPath = System.getenv('LOCAL_M2_REPO') ?: "${rootDir}${File.separator}repository"
 
 // This mapping defines the output dir of Maven artifacts (group/artifact/version layout)
 def getMavenArtifactPath(String group, String artifact, String version) {
@@ -7,18 +8,17 @@ def getMavenArtifactPath(String group, String artifact, String version) {
 }
 
 // Task to copy dependencies from Gradle cache to local Maven repo dir
-tasks.register("stageDependencies") {
+tasks.register("offlineRepository") {
     group = "dependency management"
     description = "Resolve and copy all dependencies into local Maven repo"
 
     doLast {
-        def localRepoPath = System.getenv('LOCAL_M2_REPO') ?: "${rootDir}/repository"
         def localRepoDir = file(localRepoPath)
         if (!localRepoDir.exists() && !localRepoDir.mkdirs()) {
             throw new GradleException("Failed to create local Maven repository directory: $localRepoPath")
         }
         logger.info "Staging dependencies to local Maven repo at: $localRepoPath"
-        
+
         // Create a separate repository configuration for artifact resolution
         // This ensures we check remote repositories for sources/javadoc even if main JAR exists locally
         def remoteRepos = project.repositories.matching { repo ->
@@ -78,10 +78,10 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
             depConf.resolutionStrategy.eachDependency { details ->
                 // Force resolution from remote repositories
             }
-            
+
             def dependency = dependencies.create("${group}:${name}:${version}${classifier}")
             depConf.dependencies.add(dependency)
-            
+
             depConf.resolve().each { file ->
                 def target = new File(artifactDir, file.name)
                 if (!target.exists()) {
@@ -101,7 +101,7 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
             logger.warn "Could not resolve ${group}:${name}:${version}${classifier}: ${e.message}"
         }
     }
-    
+
     // Strategy 2: Try Gradle's variant-aware resolution for sources and javadoc
     resolveVariantArtifacts(group, name, version, artifactDir, 'sources')
     resolveVariantArtifacts(group, name, version, artifactDir, 'javadoc')
@@ -120,9 +120,9 @@ def resolveVariantArtifacts(String group, String name, String version, File arti
                 attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, DocsType.JAVADOC))
             }
         }
-        
+
         conf.dependencies.add(dependencies.create("${group}:${name}:${version}"))
-        
+
         conf.resolve().each { file ->
             def target = new File(artifactDir, file.name)
             if (!target.exists()) {
@@ -140,3 +140,5 @@ def resolveVariantArtifacts(String group, String name, String version, File arti
         logger.debug "Variant-aware resolution failed for ${group}:${name}:${version} ${type}: ${e.message}"
     }
 }
+
+ext.localRepoPath = localRepoPath

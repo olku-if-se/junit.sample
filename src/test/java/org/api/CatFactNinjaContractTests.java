@@ -3,14 +3,14 @@ package org.api;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class CatFactNinjaContractTests {
 
-    //@Test
-    @RepeatedTest(1)
+    @Test
+    //@org.junit.jupiter.api.RepeatedTest(1)
     public void shouldValidateContractBetweenAppAndCatFactNinjaApi() throws Exception {
         // Given: Rest Api client for CatFactNinja;
         final CatFactNinja apiClient = ApiClientFactory.createCatFactNinjaClient();

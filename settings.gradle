@@ -1,2 +1,6 @@
 rootProject.name = 'junit.sample'
 
+apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
+
+resolvePlatformSpecifics("org.gradle.java.home")
+resolvePlatformSpecifics("org.gradle.java.installations.paths", [mode: 'all'])

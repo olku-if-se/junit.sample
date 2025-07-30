@@ -1,0 +1,34 @@
+// examine the order of classes in the classpath
+tasks.register('classpathTestInsight') {
+    group = 'help'
+    description = 'Prints the test classpath for debugging purposes'
+
+    doLast {
+        def testClassPath = sourceSets.test.runtimeClasspath.asPath
+        println "Test Classpath\n${testClassPath.split(';')*.trim().join('\n')}"
+    }
+}
+
+// build scanning should not ask for license agreement approve on each run
+if (hasProperty('buildScan')) {
+    buildScan {
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
+    }
+}
+
+
+jacocoTestReport.group = 'code quality'
+jacocoTestCoverageVerification.group = 'code quality'
+
+dependentComponents.enabled = false
+dependentComponents.group = 'deprecated'
+tasks.findByName('model').group = 'deprecated'
+tasks.findByName('components').group = 'deprecated'
+
+// IDEA Gradle plugin tasks can be connected to the major lifecycle tasks
+// tasks.findByName('clean').dependsOn += ['cleanIdea']
+
+// include custom Jars required for gradle build script functioning
+tasks.findByName('prepareKotlinBuildScriptModel').group = 'build setup'
+tasks.findByName('prepareKotlinBuildScriptModel').finalizedBy('idea')

@@ -6,4 +6,7 @@ dependencies {
     // ref: http://fusesource.github.io/jansi - Jansi is a small ASL 2.0 licensed Java library that
     // allows you to use ANSI escape sequences to format your console output which works even on windows.
     implementation 'org.fusesource.jansi:jansi:2.4.2'
+    // ref: https://ini4j.sourceforge.net/ - INI file parser for Java
+    // https://mvnrepository.com/artifact/org.ini4j/ini4j/0.5.4
+    implementation 'org.ini4j:ini4j:0.5.4'
 }

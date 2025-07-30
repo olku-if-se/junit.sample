@@ -16,30 +16,30 @@ def logTaskGraphExecution(taskGraph) {
     def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss")
     def executionCommand = getGradleExecutionCommand()
     def logFile = new File(gradle.rootProject.projectDir, "execution.log.md")
-    
+
     // Generate the Mermaid diagram content with execution info
     def mermaidContent = generateMermaidDiagram(taskGraph)
-    
+
     // Prepare the log entry
     def logEntry = buildLogEntry(timestamp, executionCommand, mermaidContent)
-    
+
     // Append to log file
     logFile.append(logEntry)
-    
+
     def executedTasksCount = taskGraph.allTasks.size()
-    println "\n" + "="*80
-    println "EXECUTION: ${logFile.absolutePath}"
-    println "TIMESTAMP: ${timestamp}"
-    println "RUN ON CI: ${executionCommand}"
-    println "RUN TASKS: ${executedTasksCount}"
-    println "="*80 + "\n"
+    println "\n" + "=" * 80
+    println "EXECUTION : ${logFile.absolutePath}"
+    println "TIMESTAMP : ${timestamp}"
+    println "RUN ON CI : ${executionCommand}"
+    println "RUN TASKS : ${executedTasksCount}"
+    println "=" * 80 + "\n"
 }
 
 /**
  * Builds the complete log entry for the execution
  */
 def buildLogEntry(String timestamp, String command, String mermaidContent) {
-    def separator = "\n" + "-"*80 + "\n"
+    def separator = "\n" + "-" * 80 + "\n"
     return """
 ${separator}
 # Gradle Execution - ${timestamp}
@@ -61,26 +61,26 @@ ${separator}
 def getGradleExecutionCommand() {
     def startParameter = gradle.startParameter
     def command = "gradlew"
-    
+
     // Add task names
     if (startParameter.taskNames) {
         command += " " + startParameter.taskNames.join(" ")
     }
-    
+
     // Add project properties
     if (startParameter.projectProperties) {
         startParameter.projectProperties.each { key, value ->
             command += " -P${key}=${value}"
         }
     }
-    
+
     // Add system properties
     if (startParameter.systemPropertiesArgs) {
         startParameter.systemPropertiesArgs.each { key, value ->
             command += " -D${key}=${value}"
         }
     }
-    
+
     // Add common flags
     if (startParameter.dryRun) command += " --dry-run"
     if (startParameter.refreshDependencies) command += " --refresh-dependencies"
@@ -89,7 +89,7 @@ def getGradleExecutionCommand() {
     if (startParameter.offline) command += " --offline"
     if (startParameter.parallelProjectExecutionEnabled) command += " --parallel"
     if (startParameter.configureOnDemand) command += " --configure-on-demand"
-    
+
     // Add log level
     switch (startParameter.logLevel) {
         case LogLevel.DEBUG:
@@ -105,17 +105,17 @@ def getGradleExecutionCommand() {
             command += " --quiet"
             break
     }
-    
+
     // Add gradle user home if different from default
     if (startParameter.gradleUserHomeDir != gradle.gradleUserHomeDir) {
         command += " --gradle-user-home \"${startParameter.gradleUserHomeDir}\""
     }
-    
+
     // Add project dir if different from current
     if (startParameter.currentDir != gradle.rootProject.projectDir) {
         command += " --project-dir \"${startParameter.currentDir}\""
     }
-    
+
     return command
 }
 
@@ -125,14 +125,14 @@ def getGradleExecutionCommand() {
 def generateMermaidDiagram(taskGraph) {
     def content = new StringBuilder()
     content.append("\n```mermaid\n")
-    
+
     // Get executed tasks from the task graph first to determine orientation
     def executedTasks = taskGraph.allTasks.toList()
-    
+
     // Use LR orientation for small graphs (< 5 tasks), TD for larger ones
     def graphOrientation = executedTasks.size() < 5 ? "LR" : "TD"
     content.append("graph ${graphOrientation}\n")
-    
+
     // Collect all tasks from all projects
     def allTasks = []
     gradle.rootProject.allprojects { project ->
@@ -140,10 +140,10 @@ def generateMermaidDiagram(taskGraph) {
             allTasks.add(task)
         }
     }
-    
+
     // executedTasks already defined above for orientation decision
     def nonExecutedTasks = allTasks.findAll { !executedTasks.contains(it) }
-    
+
     // Get requested tasks (the ones explicitly requested by user)
     def requestedTasks = gradle.startParameter.taskNames.collect { taskName ->
         // Find the actual task objects for the requested task names
@@ -152,39 +152,39 @@ def generateMermaidDiagram(taskGraph) {
         }
         return foundTasks
     }.flatten().toSet()
-    
+
     // Sort tasks by name for consistent output
     allTasks.sort { it.path }
-    
+
     // Track processed dependencies to avoid duplicates
     def processedDependencies = new HashSet()
-    
+
     // Add start and stop nodes (compatible with Mermaid v10.9.1)
     content.append("    Start((Start))\n")
     content.append("    Stop(((Stop)))\n\n")
-    
+
     // Create subgraph for executed tasks with execution order
     if (!executedTasks.isEmpty()) {
         content.append("    subgraph executed [\"🚀 Executed Tasks (Execution Order)\"]\n")
         content.append("        direction TB\n")
-        
+
         executedTasks.eachWithIndex { task, index ->
             def taskId = sanitizeTaskId(task.path)
             def taskLabel = task.path
             def isRequested = requestedTasks.contains(task)
-            
+
             // Mark requested tasks for styling (will be styled later)
             content.append("        ${taskId}[\"${taskLabel}\"]\n")
         }
         content.append("    end\n\n")
-        
+
         // Connect start to first task and last task to stop with execution order
         if (!executedTasks.isEmpty()) {
             def firstTaskId = sanitizeTaskId(executedTasks[0].path)
             def lastTaskId = sanitizeTaskId(executedTasks[-1].path)
-            
+
             content.append("    Start -->|\"Step 1\"| ${firstTaskId}\n")
-            
+
             // Connect tasks in execution order
             for (int i = 0; i < executedTasks.size() - 1; i++) {
                 def currentTaskId = sanitizeTaskId(executedTasks[i].path)
@@ -192,11 +192,11 @@ def generateMermaidDiagram(taskGraph) {
                 def stepNumber = i + 2
                 content.append("    ${currentTaskId} -->|\"Step ${stepNumber}\"| ${nextTaskId}\n")
             }
-            
+
             content.append("    ${lastTaskId} -->|\"Complete\"| Stop\n\n")
         }
     }
-    
+
     // Create subgraph for non-executed tasks (if any and not too many)
     if (!nonExecutedTasks.isEmpty() && nonExecutedTasks.size() <= 15) {
         content.append("    subgraph available [\"📋 Available Tasks\"]\n")
@@ -208,18 +208,18 @@ def generateMermaidDiagram(taskGraph) {
         }
         content.append("    end\n\n")
     }
-    
+
     // Add dependency relationships (shown as dotted lines to not interfere with execution order)
     def tasksToProcess = executedTasks.isEmpty() ? allTasks : executedTasks
     tasksToProcess.each { task ->
         def taskId = sanitizeTaskId(task.path)
-        
+
         // Process task dependencies (show as dotted dependency lines)
         task.dependsOn.each { dependency ->
             if (dependency instanceof Task && executedTasks.contains(dependency)) {
                 def depId = sanitizeTaskId(dependency.path)
                 def dependencyKey = "${depId} -.-> ${taskId}"
-                
+
                 if (!processedDependencies.contains(dependencyKey)) {
                     content.append("    ${depId} -.->|\"depends on\"| ${taskId}\n")
                     processedDependencies.add(dependencyKey)
@@ -229,7 +229,7 @@ def generateMermaidDiagram(taskGraph) {
                     if (executedTasks.contains(depTask)) {
                         def depId = sanitizeTaskId(depTask.path)
                         def dependencyKey = "${depId} -.-> ${taskId}"
-                        
+
                         if (!processedDependencies.contains(dependencyKey)) {
                             content.append("    ${depId} -.->|\"depends on\"| ${taskId}\n")
                             processedDependencies.add(dependencyKey)
@@ -238,13 +238,13 @@ def generateMermaidDiagram(taskGraph) {
                 }
             }
         }
-        
+
         // Process finalizedBy dependencies
         task.finalizedBy.getDependencies(task).each { finalizer ->
             if (executedTasks.contains(finalizer)) {
                 def finalizerId = sanitizeTaskId(finalizer.path)
                 def dependencyKey = "${taskId} -.-> ${finalizerId}"
-                
+
                 if (!processedDependencies.contains(dependencyKey)) {
                     content.append("    ${taskId} -.->|\"finalizes\"| ${finalizerId}\n")
                     processedDependencies.add(dependencyKey)
@@ -252,18 +252,18 @@ def generateMermaidDiagram(taskGraph) {
             }
         }
     }
-    
+
     // Add CSS styling (compatible with Mermaid v10.9.1)
     content.append("\n    %% Styling\n")
     content.append("    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000\n")
     content.append("    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666\n")
-    
+
     // Apply styling to requested tasks
     requestedTasks.each { task ->
         def taskId = sanitizeTaskId(task.path)
         content.append("    class ${taskId} requested\n")
     }
-    
+
     // Apply styling to available tasks (if shown)
     if (!nonExecutedTasks.isEmpty() && nonExecutedTasks.size() <= 15) {
         nonExecutedTasks.each { task ->
@@ -271,7 +271,7 @@ def generateMermaidDiagram(taskGraph) {
             content.append("    class ${taskId} available\n")
         }
     }
-    
+
     content.append("```\n\n")
     content.append("**Legend:**\n")
     content.append("- 🚀 **Executed Tasks**: Tasks that will run in this execution (in execution order)\n")
@@ -280,18 +280,18 @@ def generateMermaidDiagram(taskGraph) {
     content.append("- `-->|Step N|` : Execution order (solid arrows with step numbers)\n")
     content.append("- `-.->|depends on|` : Task dependencies (dashed arrows)\n")
     content.append("- ⭕ **Start/Stop**: Execution flow markers\n\n")
-    
+
     // Add summary statistics
     def totalTasks = allTasks.size()
     def executedTasksCount = executedTasks.size()
     def totalDependencies = processedDependencies.size()
-    
+
     content.append("**Summary:**\n")
     content.append("- **Executed Tasks**: ${executedTasksCount}\n")
     content.append("- **Available Tasks**: ${totalTasks}\n")
     content.append("- **Dependencies**: ${totalDependencies}\n")
     content.append("- **Projects**: ${gradle.rootProject.allprojects.size()}\n")
-    
+
     return content.toString()
 }
 
@@ -301,7 +301,7 @@ def generateMermaidDiagram(taskGraph) {
  */
 def sanitizeTaskId(String taskPath) {
     return taskPath.replaceAll('[^a-zA-Z0-9_]', '_')
-        .replaceAll('^_+', '')  // Remove leading underscores
-        .replaceAll('_+$', '')  // Remove trailing underscores
-        .replaceAll('_+', '_')  // Replace multiple underscores with single
+            .replaceAll('^_+', '')  // Remove leading underscores
+            .replaceAll('_+$', '')  // Remove trailing underscores
+            .replaceAll('_+', '_')  // Replace multiple underscores with single
 }
