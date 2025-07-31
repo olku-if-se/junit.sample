@@ -1,5 +1,7 @@
 ## Test Driven Development In Java, Junit and Mockito
 
+[![Build Status](https://dev.azure.com/if-it/mobility-CTP/_apis/build/status%2Fgw-junit.sample%20(13279)?branchName=main)](https://dev.azure.com/if-it/mobility-CTP/_build/latest?definitionId=13279&branchName=main)
+
 ### Step 1: Create a new Java Project, IDE defaults
 
 - Choose GRADLE as the build tool.
