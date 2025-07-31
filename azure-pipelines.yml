@@ -1,0 +1,118 @@
+trigger:
+- azure-pipelines  # Configure this to your main branch name
+- main
+
+# Enable PR trigger
+pr:
+- main
+
+# Schedule trigger - 8am daily
+schedules:
+- cron: '0 8 * * *'
+  displayName: 'Daily 8am build'
+  branches:
+    include:
+    - main
+  always: true
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: Gradle_Test_Ubuntu
+  displayName: 'Gradle Test on Ubuntu'
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    GRADLE_USER_HOME: $(Pipeline.Workspace)/.gradle
+  steps:
+  # Cache Gradle packages
+  - task: Cache@2
+    displayName: 'Cache Gradle packages'
+    inputs:
+      key: 'gradle | "$(Agent.OS)" | **/build.gradle'
+      restoreKeys: |
+        gradle | "$(Agent.OS)"
+        gradle
+      path: $(GRADLE_USER_HOME)
+      cacheHitVar: GRADLE_CACHE_RESTORED
+
+  # Install SDKMAN Tool
+  - bash: |
+      curl -s "https://get.sdkman.io" | bash
+      source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+      # Confirm SDKMAN is installed
+      sdk version
+      
+      # Set auto answer to true
+      sed -i -e 's/sdkman_auto_answer=false/sdkman_auto_answer=true/g' $HOME/.sdkman/etc/config
+
+  # Cache SDKMAN and Java JDKs
+  - task: Cache@2
+    displayName: 'Cache SDKMAN and Java JDKs'
+    inputs:
+      key: 'sdkman | "$(Agent.OS)" | "11.0.27-amzn" | "21.0.7-amzn"'
+      path: /home/vsts/.sdkman/candidates/java
+      cacheHitVar: SDKMAN_CACHE_RESTORED
+      
+  # Install Java JDKs
+  - bash: |
+      # Make SDK tool available
+      source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+      # Install Java 11.0.27-amzn and make it default
+      echo "y" | sdk install java 11.0.27-amzn
+      
+      # Install Java 21.0.7-amzn
+      echo "y" | sdk install java 21.0.7-amzn
+      
+      # Set environment variables for both JDKs
+      JAVA_11_HOME=$(sdk home java 11.0.27-amzn)
+      JAVA_21_HOME=$(sdk home java 21.0.7-amzn)
+      
+      # Make these variables available to subsequent steps
+      echo "##vso[task.setvariable variable=JAVA_HOME_11_X64]$JAVA_11_HOME"
+      echo "##vso[task.setvariable variable=JAVA_HOME_21_X64]$JAVA_21_HOME"
+      echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_11_HOME"
+      
+      echo "Installed Java versions:"
+      echo "JDK 11 location: $JAVA_11_HOME"
+      echo "JDK 21 location: $JAVA_21_HOME"
+      
+      # Verify installations
+      echo "Current Java version (should be using JDK 11 now):"
+      java -version
+    displayName: 'Install Java JDKs'
+
+  # Run tests on Ubuntu (Gradle runs with JDK 21, tests execute with JDK 11)
+  - script: |
+      chmod +x ./gradlew
+      
+      # Verify Java is available
+      echo "Verifying JAVA_HOME: $JAVA_HOME"
+      java -version
+      
+      # Use gradle cache directory
+      export GRADLE_USER_HOME=$(GRADLE_USER_HOME)
+      
+      # Run Gradle tests executor
+      ./gradlew test --no-daemon --rerun
+    displayName: 'Run tests (Ubuntu)'
+  
+  # Publish test results
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/TEST-*.xml'
+      failTaskOnFailedTests: true
+    condition: succeededOrFailed()
+
+  # Publish code coverage results
+  - task: PublishCodeCoverageResults@2
+    inputs:
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/build/reports/jacoco/test/jacocoTestReport.xml'
+      reportDirectory: '$(System.DefaultWorkingDirectory)/**/build/reports/jacoco/test/html'
+      codecoverageTool: 'JaCoCo'
+      failIfCoverageEmpty: true
+    condition: succeededOrFailed()
