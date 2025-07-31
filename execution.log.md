@@ -13713,3 +13713,62 @@ graph TD
 
 --------------------------------------------------------------------------------
 
+
+
+--------------------------------------------------------------------------------
+
+# Gradle Execution - 2025-07-31 10:11:12
+
+## Command
+```bash
+gradlew prepareKotlinBuildScriptModel -Porg.gradle.kotlin.dsl.provider.cid=780900679181200 -Pkotlin.mpp.enableIntransitiveMetadataConfiguration=true -Didea.active=true -Duser.variant= -Didea.resolveSourceSetDependencies=true -Dfile.encoding=windows-1252 -Didea.version=2024.1.5 -Duser.language=en -Didea.sync.active=true -Duser.country=US -Didea.vendor.name=JetBrains -Didea.gradle.download.sources=false --parallel --configure-on-demand
+```
+
+## Task Graph
+
+```mermaid
+graph TD
+    Start((Start))
+    Stop(((Stop)))
+
+    subgraph executed ["🚀 Executed Tasks (Execution Order)"]
+        direction TB
+        prepareKotlinBuildScriptModel[":prepareKotlinBuildScriptModel"]
+        ideaModule[":ideaModule"]
+        ideaProject[":ideaProject"]
+        ideaWorkspace[":ideaWorkspace"]
+        idea[":idea"]
+    end
+
+    Start -->|"Step 1"| prepareKotlinBuildScriptModel
+    prepareKotlinBuildScriptModel -->|"Step 2"| ideaModule
+    ideaModule -->|"Step 3"| ideaProject
+    ideaProject -->|"Step 4"| ideaWorkspace
+    ideaWorkspace -->|"Step 5"| idea
+    idea -->|"Complete"| Stop
+
+    prepareKotlinBuildScriptModel -.->|"finalizes"| idea
+
+    %% Styling
+    classDef requested fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000000
+    classDef available fill:#F0F0F0,stroke:#808080,stroke-width:1px,color:#666666
+    class prepareKotlinBuildScriptModel requested
+```
+
+**Legend:**
+- 🚀 **Executed Tasks**: Tasks that will run in this execution (in execution order)
+- 📋 **Available Tasks**: Other tasks available but not executed
+- 🟢 **Green Background**: Tasks explicitly requested by user
+- `-->|Step N|` : Execution order (solid arrows with step numbers)
+- `-.->|depends on|` : Task dependencies (dashed arrows)
+- ⭕ **Start/Stop**: Execution flow markers
+
+**Summary:**
+- **Executed Tasks**: 5
+- **Available Tasks**: 49
+- **Dependencies**: 1
+- **Projects**: 1
+
+
+--------------------------------------------------------------------------------
+
