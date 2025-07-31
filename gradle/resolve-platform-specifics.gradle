@@ -1,6 +1,112 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.fusesource.jansi:jansi:2.4.2'
+        classpath 'org.ini4j:ini4j:0.5.4'
+    }
+}
+
+
+import org.fusesource.jansi.Ansi
+import org.ini4j.Options
+
+import java.text.MessageFormat
+
+/**
+ * Expands environment variables in a given path string.
+ * Handles both Windows-style (%VAR%) and Unix-style ($VAR or ${VAR}) variables.
+ * Normalizes the path to resolve relative paths like '..' and '.'.
+ *
+ * @param path The path string containing environment variables.
+ * @return The expanded and normalized path.
+ */
+def expandEnvironmentVariables = { String path ->
+    def currentOs = System.getProperty("os.name").toLowerCase()
+    def isWindows = currentOs.contains("win")
+
+    // Step 1: Replace environment variables based on OS
+    def expandedPath = path
+
+    if (isWindows) {
+        // Handle Windows-style environment variables: %VARIABLE%
+        def matcher = path =~ /%([^%]+)%/
+        while (matcher.find()) {
+            def envVar = matcher.group(1)
+            def envValue = System.getenv(envVar)
+            if (envValue != null) {
+                expandedPath = expandedPath.replace("%${envVar}%", envValue)
+            }
+        }
+    } else {
+        // Handle Unix-style environment variables: $VARIABLE or ${VARIABLE}
+        def simpleVarPattern = ~/\$([a-zA-Z_][a-zA-Z0-9_]*)/
+        def bracedVarPattern = ~/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/
+
+        // Replace ${VAR} style variables
+        def bracedMatcher = bracedVarPattern.matcher(expandedPath)
+        while (bracedMatcher.find()) {
+            def envVar = bracedMatcher.group(1)
+            def envValue = System.getenv(envVar)
+            if (envValue != null) {
+                expandedPath = expandedPath.replace("\${${envVar}}", envValue)
+            }
+        }
+
+        // Replace $VAR style variables
+        def simpleMatcher = simpleVarPattern.matcher(expandedPath)
+        while (simpleMatcher.find()) {
+            def envVar = simpleMatcher.group(1)
+            def envValue = System.getenv(envVar)
+            if (envValue != null) {
+                expandedPath = expandedPath.replace("\$${envVar}", envValue)
+            }
+        }
+    }
+
+    // Step 2: Normalize path to handle relative paths like '..' and '.'
+    try {
+        def file = new File(expandedPath)
+        // resolve symbolic links to real path
+        return file.toPath().toRealPath().toString()
+    } catch (Exception e) {
+        // If we can't canonicalize, return the expanded path as is
+        logger.debug("Could not canonicalize path: $expandedPath. Using as is. Error: ${e.message}")
+        return expandedPath
+    }
+}
+
+/**
+ * Patches the gradle.properties file with a new key-value pair.
+ * If the key already exists with the same value, it does nothing.
+ * If the file does not exist, it logs a warning.
+ *
+ * @param key The property key to patch.
+ * @param value The value to set for the property.
+ */
+def patchGradleProperties = { String key, String value ->
+    def gradlePropertiesFile = new File(rootDir, 'gradle.properties')
+    if (!gradlePropertiesFile.exists()) {
+        logger.warn("⚠️ gradle.properties file not found at ${gradlePropertiesFile.absolutePath}. Skipping patch.")
+        return
+    }
+
+    def properties = new Options(gradlePropertiesFile)
+    def oldValue = properties.get(key)
+    if (oldValue != value) {
+        properties.putComment(key, "\n# Auto-Generated from ${key}.multi\n# and patched by gradle/resolve-platform-specifics.gradle script\n#")
+        properties.put(key, value)
+        properties.store()
+        logger.info("✅ Patched gradle.properties: '$key' = '$value'")
+    } else {
+        logger.info("🔍 Property '$key' already set to correct value, no update needed.")
+    }
+}
+
 /**
  * Usage:
- *   resolvePlatformSpecifics("some.property.multi")
+ *   resolvePlatformSpecifics("some.property", [suffix: '.multi', mode: 'first', verifyExists: true, inputSeparator: ',', outputSeparator: ','])
  *
  * Example in gradle.properties:
  *   org.gradle.java.home.multi=windows:C:\\Java\\jdk-21,linux:/usr/lib/jvm/java-21
@@ -8,26 +114,35 @@
  *
  * This sets:
  *   org.gradle.java.home = [resolved path]
- *   
- * Environment variables in paths (like %VARIABLE% on Windows or $VARIABLE on Linux) 
- * will be expanded automatically.
- */
-
-def resolvePlatformSpecifics = { String multiPropertyKey, String suffix = '.multi' ->
+ *
+ * Environment variables in paths (like %VARIABLE% on Windows or $VARIABLE on Linux)
+ * will be expanded automatically.*/
+def resolvePlatformSpecifics = { String multiPropertyKey, Map options = [:] ->
+    def suffix = options.get('suffix', '.multi')
+    def mode = options.get('mode', 'first') // 'first' or 'all'
+    def verifyExists = options.get('verifyExists', true)
+    def inputSeparator = options.get('inputSeparator', ',')
+    def outputSeparator = options.get('outputSeparator', ',')
     def osName = System.getProperty("os.name").toLowerCase()
-    def osKey = osName.contains("win") ? "windows" :
-            osName.contains("mac") ? "mac" :
-                    osName.contains("nix") || osName.contains("nux") ? "linux" : "unknown"
+    def osKey = osName.contains("win") ? "windows" : osName.contains("mac") ? "mac" : osName.contains("nix") || osName.contains("nux") ? "linux" : "unknown"
+    // print("🔍 OS: '$osKey'\n")
 
     def keyToUse = multiPropertyKey.endsWith(suffix) ? multiPropertyKey : multiPropertyKey + suffix
 
-    def raw = project.findProperty(keyToUse) as String
+    def raw
+    try {
+        raw = settings.providers.gradleProperty(keyToUse).getOrNull() as String
+    } catch (Exception e) {
+        raw = project.findProperty(keyToUse) as String
+    }
+
     if (!raw) {
         logger.warn("⚠️ Property '$keyToUse' not defined. Ignored.")
         return
     }
 
-    def entries = raw.split(",")*.trim()
+    def entries = raw.split(inputSeparator)*.trim()
+    // print("🔍 Resolving platform-specifics for '$keyToUse' with entries: ${entries.join(",")}\n")
 
     def invalidEntries = []
     entries.eachWithIndex { entry, index ->
@@ -39,84 +154,65 @@ def resolvePlatformSpecifics = { String multiPropertyKey, String suffix = '.mult
     }
 
     if (!invalidEntries.isEmpty()) {
-        throw new GradleException(
-                "❌ Invalid format in '${keyToUse}': expected entries like 'os:path'.\n" +
-                        "Please fix the following:\n" +
-                        invalidEntries.join("\n")
-        )
+        throw new GradleException("❌ Invalid format in '${keyToUse}': expected entries like 'os:path'.\n" + "Please fix the following:\n" + invalidEntries.join("\n"))
     }
 
-    def expandEnvironmentVariables = { String path ->
-        def currentOs = System.getProperty("os.name").toLowerCase()
-        def isWindows = currentOs.contains("win")
-        
-        // Step 1: Replace environment variables based on OS
-        def expandedPath = path
-        
-        if (isWindows) {
-            // Handle Windows-style environment variables: %VARIABLE%
-            def matcher = path =~ /%([^%]+)%/
-            while (matcher.find()) {
-                def envVar = matcher.group(1)
-                def envValue = System.getenv(envVar)
-                if (envValue != null) {
-                    expandedPath = expandedPath.replace("%${envVar}%", envValue)
-                }
+    def candidates = entries
+            .findAll { entry ->
+                if (!entry || entry.startsWith("#")) return false
+                def parts = entry.split(":", 2)
+                parts[0].equalsIgnoreCase(osKey)
             }
-        } else {
-            // Handle Unix-style environment variables: $VARIABLE or ${VARIABLE}
-            def simpleVarPattern = ~/\$([a-zA-Z_][a-zA-Z0-9_]*)/
-            def bracedVarPattern = ~/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/
-            
-            // Replace ${VAR} style variables
-            def bracedMatcher = bracedVarPattern.matcher(expandedPath)
-            while (bracedMatcher.find()) {
-                def envVar = bracedMatcher.group(1)
-                def envValue = System.getenv(envVar)
-                if (envValue != null) {
-                    expandedPath = expandedPath.replace("\${${envVar}}", envValue)
-                }
-            }
-            
-            // Replace $VAR style variables
-            def simpleMatcher = simpleVarPattern.matcher(expandedPath)
-            while (simpleMatcher.find()) {
-                def envVar = simpleMatcher.group(1)
-                def envValue = System.getenv(envVar)
-                if (envValue != null) {
-                    expandedPath = expandedPath.replace("\$${envVar}", envValue)
-                }
-            }
-        }
-        
-        // Step 2: Normalize path to handle relative paths like '..' and '.'        
-        try {
-            def file = new File(expandedPath)
-            return file.canonicalPath
-        } catch (Exception e) {
-            // If we can't canonicalize, return the expanded path as is
-            logger.debug("Could not canonicalize path: $expandedPath. Using as is. Error: ${e.message}")
-            return expandedPath
-        }
-    }
-
-    
-    def selected = entries
-            .find { entry ->
+            .collect { entry ->
                 def (key, value) = entry.split(":", 2)
                 def expandedValue = expandEnvironmentVariables(value)
-                key.equalsIgnoreCase(osKey) && new File(expandedValue).exists()
+                [original: value, expanded: expandedValue]
             }
 
-    if (selected) {
-        def (os, value) = selected.split(":", 2)
-        def expandedValue = expandEnvironmentVariables(value)
-        def targetProperty = keyToUse.replaceFirst(/${suffix}$/, "")
-        println "✅ Resolved $targetProperty for $osKey: $expandedValue (original: $value)"
+    def targetProperty = keyToUse.replaceFirst(/\Q${suffix}\E$/, "")
+    def template = new MessageFormat(Ansi.ansi()
+            .a("✅ Resolved property ")
+            .bold().a("{0}").boldOff()
+            .a(" for ")
+            .fg(Ansi.Color.GREEN).a("{1}").reset()
+            .a(": ")
+            .fg(Ansi.Color.YELLOW).a("{2}").reset()
+            .a(" (originals: ")
+            .fgBrightMagenta().a("{3}").reset()
+            .a(")")
+            .toString())
+
+    if (mode == 'first') {
+        def selectedMap = candidates.find { !verifyExists || new File(it.expanded).exists() }
+        if (!selectedMap) {
+            logger.warn("⚠️ No matching path found in '$keyToUse' for OS '$osKey'")
+            return
+        }
+        def expandedValue = selectedMap.expanded
+        def originalValue = selectedMap.original
+
+        println template.format([targetProperty, osKey, expandedValue, originalValue].toArray())
         System.setProperty(targetProperty, expandedValue)
+        patchGradleProperties(targetProperty, expandedValue)
+    } else if (mode == 'all') {
+        def selectedMaps = candidates.findAll { !verifyExists || new File(it.expanded).exists() }
+        if (selectedMaps.isEmpty()) {
+            logger.warn("⚠️ No matching path found in '$keyToUse' for OS '$osKey'")
+            return
+        }
+        def uniqueMaps = selectedMaps.unique { it.expanded }
+        def expandedValues = uniqueMaps.collect { it.expanded }
+        def originalValues = selectedMaps.collect { it.original }
+        def finalValue = expandedValues.join(outputSeparator)
+        def originalsStr = originalValues.join(', ')
+
+        println template.format([targetProperty, osKey, finalValue, originalsStr].toArray())
+        System.setProperty(targetProperty, finalValue)
+        patchGradleProperties(targetProperty, finalValue)
     } else {
-        logger.warn("⚠️ No matching path found in '$keyToUse' for OS '$osKey'")
+        throw new GradleException("❌ Unsupported mode '$mode' for resolvePlatformSpecifics. Use 'first' or 'all'.")
     }
 }
 
 ext.resolvePlatformSpecifics = resolvePlatformSpecifics
+ext.expandEnvironmentVariables = expandEnvironmentVariables

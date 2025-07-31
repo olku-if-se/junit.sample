@@ -1,3 +1,4 @@
+### Build System ###
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
@@ -41,7 +42,13 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-# Temporary files
+### Temporary files ###
 *.log
 *.tmp
 *.~*~
+
+### Execution Graph ###
+execution.log.md
+
+### Offline Reposittory ###
+repository/
