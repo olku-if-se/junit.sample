@@ -69,10 +69,36 @@ tasks.register("offlineRepository") {
                         }
                     }
 
-                    // Resolve and copy POM, sources, and Javadoc using remote-first approach
-                    def pomParents = resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
-                    if (pomParents) {
-                        foundParentPoms.addAll(pomParents)
+                    // Only resolve additional artifacts for non-manifold dependencies to prevent cross-contamination
+                    if (!group.startsWith('systems.manifold')) {
+                        def pomParents = resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+                        if (pomParents) {
+                            foundParentPoms.addAll(pomParents)
+                        }
+                    } else {
+                        // For manifold artifacts, only try to get the POM for parent reference extraction
+                        try {
+                            def depConf = configurations.detachedConfiguration()
+                            depConf.transitive = false
+                            def dependency = dependencies.create("${group}:${name}:${version}@pom")
+                            depConf.dependencies.add(dependency)
+                            depConf.resolve().each { file ->
+                                def target = new File(artifactDir, file.name)
+                                if (!target.exists()) {
+                                    project.copy {
+                                        from file
+                                        into artifactDir
+                                    }
+                                    def parentRef = extractParentPomReference(target)
+                                    if (parentRef) {
+                                        foundParentPoms.add(parentRef)
+                                        logger.lifecycle "🔍 Found parent POM reference: ${parentRef}"
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.warn "Could not resolve POM for ${group}:${name}:${version}: ${e.message}"
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -101,6 +127,11 @@ tasks.register("offlineRepository") {
         logger.lifecycle "🔍 PHASE 4: Resolving parent POMs recursively..."
         def resolvedParents = resolveParentPomsRecursively()
         
+        // PHASE 5: Resolve known plugin runtime dependencies
+        logger.lifecycle ""
+        logger.lifecycle "🔍 PHASE 5: Resolving known plugin runtime dependencies..."
+        def pluginRuntimeArtifacts = resolvePluginRuntimeDependencies()
+        
         logger.lifecycle ""
         logger.lifecycle "✅ COMPLETE: Offline repository preparation finished!"
         logger.lifecycle "📊 SUMMARY:"
@@ -108,7 +139,8 @@ tasks.register("offlineRepository") {
         logger.lifecycle "   - Plugin artifacts: ${pluginArtifacts}"
         logger.lifecycle "   - buildSrc artifacts: ${buildSrcArtifacts}"
         logger.lifecycle "   - Parent POMs resolved: ${resolvedParents}"
-        logger.lifecycle "   - Total: ${processedArtifacts + pluginArtifacts + buildSrcArtifacts + resolvedParents}"
+        logger.lifecycle "   - Plugin runtime deps: ${pluginRuntimeArtifacts}"
+        logger.lifecycle "   - Total: ${processedArtifacts + pluginArtifacts + buildSrcArtifacts + resolvedParents + pluginRuntimeArtifacts}"
     }
 }
 
@@ -120,11 +152,9 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
     ['@pom', ':sources@jar', ':javadoc@jar'].each { classifier ->
         try {
             def depConf = configurations.detachedConfiguration()
-            // Temporarily override repositories to prioritize remote ones
-            depConf.resolutionStrategy.eachDependency { details ->
-                // Force resolution from remote repositories
-            }
-
+            // Prevent transitive dependency resolution to avoid cross-contamination
+            depConf.transitive = false
+            
             def dependency = dependencies.create("${group}:${name}:${version}${classifier}")
             depConf.dependencies.add(dependency)
 
@@ -397,6 +427,124 @@ def resolveVariantArtifacts(String group, String name, String version, File arti
         }
     } catch (Exception e) {
         logger.debug "Variant-aware resolution failed for ${group}:${name}:${version} ${type}: ${e.message}"
+    }
+}
+
+// Resolve known plugin runtime dependencies that may be created dynamically
+def resolvePluginRuntimeDependencies() {
+    def resolvedRuntimeDeps = 0
+    
+    try {
+        // Dynamically determine manifold version from actual project resolution
+        def manifoldVersion = getResolvedManifoldVersion()
+        if (!manifoldVersion) {
+            logger.lifecycle "📦 No manifold version found in project dependencies, skipping plugin runtime dependencies"
+            return 0
+        }
+        
+        logger.lifecycle "📦 Using manifold version: ${manifoldVersion} (from project dependencies)"
+        
+        // Known Gosu plugin runtime dependencies that it resolves dynamically
+        def gosuPluginDeps = [
+            "systems.manifold:manifold:${manifoldVersion}",
+            "systems.manifold:manifold-rt:${manifoldVersion}",
+            "systems.manifold:manifold-util:${manifoldVersion}",
+            // Core manifold API that contains IManifoldHost
+            "systems.manifold:manifold-api:${manifoldVersion}",
+            // Additional manifold dependencies that contain required classes
+            "systems.manifold:manifold-collections:${manifoldVersion}",
+            "systems.manifold:manifold-ext:${manifoldVersion}",
+            "systems.manifold:manifold-io:${manifoldVersion}",
+            "systems.manifold:manifold-json:${manifoldVersion}",
+            "systems.manifold:manifold-props:${manifoldVersion}",
+            "systems.manifold:manifold-strings:${manifoldVersion}",
+            "systems.manifold:manifold-templates:${manifoldVersion}"
+        ]
+        
+        logger.lifecycle "📦 Resolving known Gosu plugin runtime dependencies..."
+        
+        gosuPluginDeps.each { depCoords ->
+            try {
+                def coords = depCoords.split(':')
+                def group = coords[0]
+                def artifact = coords[1]
+                def version = coords[2]
+                
+                def artifactDir = getMavenArtifactPath(group, artifact, version)
+                def targetFile = new File(artifactDir, "${artifact}-${version}.jar")
+                
+                if (!targetFile.exists()) {
+                    logger.lifecycle "📦 Resolving plugin runtime dependency: ${depCoords}"
+                    
+                    def depConf = configurations.detachedConfiguration()
+                    def dependency = dependencies.create(depCoords)
+                    depConf.dependencies.add(dependency)
+                    
+                    def resolved = depConf.resolve()
+                    if (!resolved.isEmpty()) {
+                        if (!artifactDir.exists() && !artifactDir.mkdirs()) {
+                            throw new GradleException("Failed to create directory: $artifactDir")
+                        }
+                        
+                        // Only copy files that actually match the requested artifact
+                        resolved.each { file ->
+                            // Only copy if filename matches the expected artifact pattern
+                            if (file.name.startsWith("${artifact}-${version}")) {
+                                def targetName = file.name
+                                def target = new File(artifactDir, targetName)
+                                logger.lifecycle "📦 Copying plugin runtime dependency: ${file.name} -> ${targetName}"
+                                project.copy {
+                                    from file
+                                    into artifactDir
+                                }
+                                resolvedRuntimeDeps++
+                                
+                                // Note: Not calling resolveAndCopyAdditionalArtifacts here to avoid
+                                // transitive dependency pollution in artifact directories
+                                // Each plugin dependency is resolved individually in the loop
+                            } else {
+                                logger.debug "Skipping transitive dependency file: ${file.name} (not main artifact for ${artifact})"
+                            }
+                        }
+                    }
+                } else {
+                    logger.lifecycle "📦 Plugin runtime dependency already exists: ${targetFile.name}"
+                }
+                
+            } catch (Exception e) {
+                logger.warn "Warning: Could not resolve plugin runtime dependency ${depCoords}: ${e.message}"
+            }
+        }
+        
+    } catch (Exception e) {
+        logger.warn "Warning: Could not process plugin runtime dependencies: ${e.message}"
+    }
+    
+    return resolvedRuntimeDeps
+}
+
+// Helper method to get the resolved manifold version from project dependencies
+def getResolvedManifoldVersion() {
+    try {
+        // Look through all resolved configurations for manifold dependencies
+        def manifoldVersion = null
+        configurations.findAll { it.canBeResolved }.each { configuration ->
+            try {
+                configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    if (artifact.moduleVersion.id.group == 'systems.manifold' &&
+                        artifact.moduleVersion.id.name == 'manifold') {
+                        manifoldVersion = artifact.moduleVersion.id.version
+                        logger.debug "Found manifold version ${manifoldVersion} in configuration ${configuration.name}"
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore configuration resolution errors
+            }
+        }
+        return manifoldVersion
+    } catch (Exception e) {
+        logger.warn "Could not determine manifold version: ${e.message}"
+        return null
     }
 }
 
