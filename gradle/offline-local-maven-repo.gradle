@@ -17,7 +17,15 @@ tasks.register("offlineRepository") {
         if (!localRepoDir.exists() && !localRepoDir.mkdirs()) {
             throw new GradleException("Failed to create local Maven repository directory: $localRepoPath")
         }
-        logger.info "Staging dependencies to local Maven repo at: $localRepoPath"
+        logger.lifecycle "🔄 Starting offline repository preparation at: $localRepoPath"
+        
+        // Log what we're about to process
+        logger.lifecycle "📋 DIAGNOSIS: Identifying missing dependency types..."
+        logger.lifecycle "   ✓ Project configurations: ${configurations.findAll { it.canBeResolved }.size()} found"
+        logger.lifecycle "   ✗ Plugin dependencies: NOT CURRENTLY PROCESSED"
+        logger.lifecycle "   ✗ buildSrc dependencies: NOT CURRENTLY PROCESSED"
+        logger.lifecycle "   ✗ Parent POM resolution: NOT CURRENTLY PROCESSED"
+        logger.lifecycle ""
 
         // Create a separate repository configuration for artifact resolution
         // This ensures we check remote repositories for sources/javadoc even if main JAR exists locally
@@ -25,12 +33,17 @@ tasks.register("offlineRepository") {
             repo.name != 'maven' || !repo.url.toString().contains('repository')
         }
 
+        logger.lifecycle "🔍 PHASE 1: Processing project configurations..."
+        def processedArtifacts = 0
+        def foundParentPoms = []
+        
         configurations.findAll { it.canBeResolved }.each { configuration ->
-            logger.info "Resolving configuration: ${configuration.name}"
+            logger.lifecycle "📁 Resolving configuration: ${configuration.name}"
             try {
                 configuration.resolve()
 
                 configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    processedArtifacts++
                     def group = artifact.moduleVersion.id.group
                     def name = artifact.name
                     def version = artifact.moduleVersion.id.version
@@ -57,19 +70,52 @@ tasks.register("offlineRepository") {
                     }
 
                     // Resolve and copy POM, sources, and Javadoc using remote-first approach
-                    resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+                    def pomParents = resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+                    if (pomParents) {
+                        foundParentPoms.addAll(pomParents)
+                    }
                 }
             } catch (Exception e) {
                 logger.warn "Warning: Could not resolve configuration ${configuration.name}: ${e.message}"
             }
         }
-
-        logger.info "Dependency staging finished."
+        
+        logger.lifecycle "📊 PHASE 1 COMPLETE: Processed ${processedArtifacts} artifacts from project configurations"
+        logger.lifecycle "⚠️  Found ${foundParentPoms.size()} parent POMs that need resolution from new downloads:"
+        foundParentPoms.unique().each { parent ->
+            logger.lifecycle "   - ${parent}"
+        }
+        
+        // PHASE 2: Process buildscript and plugin dependencies
+        logger.lifecycle ""
+        logger.lifecycle "🔍 PHASE 2: Processing buildscript and plugin dependencies..."
+        def pluginArtifacts = processPluginDependencies()
+        
+        // PHASE 3: Process buildSrc dependencies
+        logger.lifecycle ""
+        logger.lifecycle "🔍 PHASE 3: Processing buildSrc dependencies..."
+        def buildSrcArtifacts = processBuildSrcDependencies()
+        
+        // PHASE 4: Recursive parent POM resolution
+        logger.lifecycle ""
+        logger.lifecycle "🔍 PHASE 4: Resolving parent POMs recursively..."
+        def resolvedParents = resolveParentPomsRecursively()
+        
+        logger.lifecycle ""
+        logger.lifecycle "✅ COMPLETE: Offline repository preparation finished!"
+        logger.lifecycle "📊 SUMMARY:"
+        logger.lifecycle "   - Project artifacts: ${processedArtifacts}"
+        logger.lifecycle "   - Plugin artifacts: ${pluginArtifacts}"
+        logger.lifecycle "   - buildSrc artifacts: ${buildSrcArtifacts}"
+        logger.lifecycle "   - Parent POMs resolved: ${resolvedParents}"
+        logger.lifecycle "   - Total: ${processedArtifacts + pluginArtifacts + buildSrcArtifacts + resolvedParents}"
     }
 }
 
 // Helper method to resolve additional artifacts (POM, sources, javadoc) with remote-first strategy
 def resolveAndCopyAdditionalArtifacts(String group, String name, String version, File artifactDir) {
+    def foundParentPoms = []
+    
     // Strategy 1: Try individual artifact resolution with remote repositories
     ['@pom', ':sources@jar', ':javadoc@jar'].each { classifier ->
         try {
@@ -94,6 +140,15 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
                         logger.warn "Failed to copy $file to $target"
                     } else {
                         logger.info "Successfully copied ${file.name} (${target.length()} bytes)"
+                        
+                        // Check for parent POM references in downloaded POM files
+                        if (classifier == '@pom' && file.name.endsWith('.pom')) {
+                            def parentRef = extractParentPomReference(file)
+                            if (parentRef) {
+                                foundParentPoms.add(parentRef)
+                                logger.lifecycle "🔍 Found parent POM reference: ${parentRef}"
+                            }
+                        }
                     }
                 }
             }
@@ -105,6 +160,210 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
     // Strategy 2: Try Gradle's variant-aware resolution for sources and javadoc
     resolveVariantArtifacts(group, name, version, artifactDir, 'sources')
     resolveVariantArtifacts(group, name, version, artifactDir, 'javadoc')
+    
+    return foundParentPoms
+}
+
+// Helper method to extract parent POM reference from a POM file
+def extractParentPomReference(File pomFile) {
+    try {
+        def pomText = pomFile.text
+        def parentMatch = pomText =~ /<parent>\s*<groupId>(.*?)<\/groupId>\s*<artifactId>(.*?)<\/artifactId>\s*<version>(.*?)<\/version>/
+        if (parentMatch.find()) {
+            return "${parentMatch.group(1)}:${parentMatch.group(2)}:${parentMatch.group(3)}"
+        }
+    } catch (Exception e) {
+        logger.debug "Could not parse POM file ${pomFile.name}: ${e.message}"
+    }
+    return null
+}
+
+// Process plugin dependencies (buildscript classpath)
+def processPluginDependencies() {
+    def pluginArtifacts = 0
+    
+    try {
+        // Process buildscript dependencies
+        def buildscriptClasspath = project.buildscript.configurations.classpath
+        logger.lifecycle "📦 Processing buildscript classpath..."
+        
+        buildscriptClasspath.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            def group = artifact.moduleVersion.id.group
+            def name = artifact.name
+            def version = artifact.moduleVersion.id.version
+            def classifier = artifact.classifier ? "-${artifact.classifier}" : ""
+            def artifactDir = getMavenArtifactPath(group, name, version)
+
+            if (!artifactDir.exists() && !artifactDir.mkdirs()) {
+                throw new GradleException("Failed to create directory: $artifactDir")
+            }
+
+            // Copy main artifact
+            def artifactFile = artifact.file
+            def targetFileName = "${name}-${version}${classifier}.${artifact.extension}"
+            def targetFile = new File(artifactDir, targetFileName)
+            if (!targetFile.exists()) {
+                logger.lifecycle "📦 Copying buildscript artifact: ${group}:${name}:${version}"
+                project.copy {
+                    from artifactFile
+                    into artifactDir
+                }
+                pluginArtifacts++
+                
+                // Copy additional artifacts (POM, sources, javadoc)
+                resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+            }
+        }
+        
+    } catch (Exception e) {
+        logger.warn "Warning: Could not process plugin dependencies: ${e.message}"
+    }
+    
+    return pluginArtifacts
+}
+
+// Process buildSrc dependencies
+def processBuildSrcDependencies() {
+    def buildSrcArtifacts = 0
+    
+    try {
+        def buildSrcDir = file("${rootDir}/buildSrc")
+        if (!buildSrcDir.exists()) {
+            logger.lifecycle "📦 No buildSrc directory found, skipping..."
+            return 0
+        }
+        
+        logger.lifecycle "📦 Processing buildSrc dependencies..."
+        
+        // Execute gradle dependencies command on buildSrc to get its resolved dependencies
+        def buildSrcProject = project(':buildSrc')
+        if (buildSrcProject != null) {
+            buildSrcProject.configurations.findAll { it.canBeResolved }.each { configuration ->
+                logger.lifecycle "📁 Processing buildSrc configuration: ${configuration.name}"
+                try {
+                    configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        def group = artifact.moduleVersion.id.group
+                        def name = artifact.name
+                        def version = artifact.moduleVersion.id.version
+                        def classifier = artifact.classifier ? "-${artifact.classifier}" : ""
+                        def artifactDir = getMavenArtifactPath(group, name, version)
+
+                        if (!artifactDir.exists() && !artifactDir.mkdirs()) {
+                            throw new GradleException("Failed to create directory: $artifactDir")
+                        }
+
+                        // Copy main artifact
+                        def artifactFile = artifact.file
+                        def targetFileName = "${name}-${version}${classifier}.${artifact.extension}"
+                        def targetFile = new File(artifactDir, targetFileName)
+                        if (!targetFile.exists()) {
+                            logger.lifecycle "📦 Copying buildSrc artifact: ${group}:${name}:${version}"
+                            project.copy {
+                                from artifactFile
+                                into artifactDir
+                            }
+                            buildSrcArtifacts++
+                            
+                            // Copy additional artifacts (POM, sources, javadoc)
+                            resolveAndCopyAdditionalArtifacts(group, name, version, artifactDir)
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn "Warning: Could not resolve buildSrc configuration ${configuration.name}: ${e.message}"
+                }
+            }
+        }
+        
+    } catch (Exception e) {
+        logger.warn "Warning: Could not process buildSrc dependencies: ${e.message}"
+    }
+    
+    return buildSrcArtifacts
+}
+
+// Recursively resolve parent POMs
+def resolveParentPomsRecursively() {
+    def resolvedParents = 0
+    def processedParents = new HashSet()
+    def parentsToProcess = new LinkedHashSet()
+    
+    // Find all existing POM files and extract parent references
+    logger.lifecycle "📦 Scanning existing POMs for parent references..."
+    def localRepoDir = file(localRepoPath)
+    localRepoDir.eachFileRecurse { file ->
+        if (file.name.endsWith('.pom')) {
+            def parentRef = extractParentPomReference(file)
+            if (parentRef && !processedParents.contains(parentRef)) {
+                parentsToProcess.add(parentRef)
+                logger.lifecycle "🔗 Found parent reference: ${parentRef} in ${file.name}"
+            }
+        }
+    }
+    
+    // Recursively resolve parent POMs
+    while (!parentsToProcess.isEmpty()) {
+        def currentParents = new ArrayList(parentsToProcess)
+        parentsToProcess.clear()
+        
+        currentParents.each { parentCoords ->
+            if (!processedParents.contains(parentCoords)) {
+                processedParents.add(parentCoords)
+                
+                def coords = parentCoords.split(':')
+                if (coords.length >= 3) {
+                    def group = coords[0]
+                    def artifact = coords[1]
+                    def version = coords[2]
+                    
+                    logger.lifecycle "📦 Resolving parent POM: ${parentCoords}"
+                    
+                    try {
+                        def parentDir = getMavenArtifactPath(group, artifact, version)
+                        def parentPomFile = new File(parentDir, "${artifact}-${version}.pom")
+                        
+                        if (!parentPomFile.exists()) {
+                            // Try to resolve the parent POM
+                            def depConf = configurations.detachedConfiguration()
+                            def dependency = dependencies.create("${group}:${artifact}:${version}@pom")
+                            depConf.dependencies.add(dependency)
+                            
+                            def resolved = depConf.resolve()
+                            if (!resolved.isEmpty()) {
+                                if (!parentDir.exists() && !parentDir.mkdirs()) {
+                                    throw new GradleException("Failed to create directory: $parentDir")
+                                }
+                                
+                                resolved.each { file ->
+                                    def targetFile = new File(parentDir, "${artifact}-${version}.pom")
+                                    logger.lifecycle "📦 Copying parent POM: ${file.name} -> ${targetFile.name}"
+                                    project.copy {
+                                        from file
+                                        into parentDir
+                                        rename { fileName -> "${artifact}-${version}.pom" }
+                                    }
+                                    resolvedParents++
+                                    
+                                    // Check if this parent POM has its own parent
+                                    def grandParentRef = extractParentPomReference(targetFile)
+                                    if (grandParentRef && !processedParents.contains(grandParentRef)) {
+                                        parentsToProcess.add(grandParentRef)
+                                        logger.lifecycle "🔗 Found grandparent reference: ${grandParentRef}"
+                                    }
+                                }
+                            }
+                        } else {
+                            logger.lifecycle "📦 Parent POM already exists: ${parentPomFile.name}"
+                        }
+                        
+                    } catch (Exception e) {
+                        logger.warn "Warning: Could not resolve parent POM ${parentCoords}: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+    
+    return resolvedParents
 }
 
 // Helper method to resolve artifacts using Gradle's variant-aware dependency resolution
