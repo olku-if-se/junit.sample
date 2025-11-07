@@ -158,28 +158,41 @@ def resolveAndCopyAdditionalArtifacts(String group, String name, String version,
             def dependency = dependencies.create("${group}:${name}:${version}${classifier}")
             depConf.dependencies.add(dependency)
 
-            depConf.resolve().each { file ->
+            def resolved = depConf.resolve()
+            logger.lifecycle "🔍 DIAGNOSIS: Additional artifact resolution for ${group}:${name}:${version}${classifier} returned ${resolved.size()} files"
+            
+            resolved.each { file ->
+                logger.lifecycle "🔍 DIAGNOSIS: Checking additional artifact file ${file.name} - expected pattern: ${name}-${version}"
+                
                 def target = new File(artifactDir, file.name)
                 if (!target.exists()) {
-                    logger.info "Copying additional artifact: $file to $target"
-                    project.copy {
-                        from file
-                        into artifactDir
-                    }
-                    if (!target.exists() || target.length() == 0) {
-                        logger.warn "Failed to copy $file to $target"
-                    } else {
-                        logger.info "Successfully copied ${file.name} (${target.length()} bytes)"
-                        
-                        // Check for parent POM references in downloaded POM files
-                        if (classifier == '@pom' && file.name.endsWith('.pom')) {
-                            def parentRef = extractParentPomReference(file)
-                            if (parentRef) {
-                                foundParentPoms.add(parentRef)
-                                logger.lifecycle "🔍 Found parent POM reference: ${parentRef}"
+                    // DIAGNOSIS: Validate file belongs to requested artifact
+                    if (file.name.startsWith("${name}-${version}") || file.name == "${name}-${version}.pom" ||
+                        file.name == "${name}-${version}.jar" || file.name.contains("${name}-${version}-")) {
+                        logger.lifecycle "✅ DIAGNOSIS: File ${file.name} matches expected additional artifact pattern, copying to ${target.name}"
+                        project.copy {
+                            from file
+                            into artifactDir
+                        }
+                        if (!target.exists() || target.length() == 0) {
+                            logger.warn "Failed to copy $file to $target"
+                        } else {
+                            logger.info "Successfully copied ${file.name} (${target.length()} bytes)"
+                            
+                            // Check for parent POM references in downloaded POM files
+                            if (classifier == '@pom' && file.name.endsWith('.pom')) {
+                                def parentRef = extractParentPomReference(file)
+                                if (parentRef) {
+                                    foundParentPoms.add(parentRef)
+                                    logger.lifecycle "🔍 Found parent POM reference: ${parentRef}"
+                                }
                             }
                         }
+                    } else {
+                        logger.warn "❌ DIAGNOSIS: SKIPPING ${file.name} - does not match expected additional artifact pattern ${name}-${version} (potential transitive contamination)"
                     }
+                } else {
+                    logger.lifecycle "🔍 DIAGNOSIS: Additional artifact file ${file.name} already exists, skipping"
                 }
             }
         } catch (Exception e) {
@@ -353,31 +366,46 @@ def resolveParentPomsRecursively() {
                         
                         if (!parentPomFile.exists()) {
                             // Try to resolve the parent POM
+                            logger.lifecycle "🔍 DIAGNOSIS: Resolving parent POM ${group}:${artifact}:${version} into ${parentDir.name}"
+                            
                             def depConf = configurations.detachedConfiguration()
+                            // DIAGNOSIS: Add transitive = false to prevent contamination
+                            depConf.transitive = false
+                            logger.lifecycle "🔍 DIAGNOSIS: Set transitive=false for parent POM resolution"
+                            
                             def dependency = dependencies.create("${group}:${artifact}:${version}@pom")
                             depConf.dependencies.add(dependency)
                             
                             def resolved = depConf.resolve()
+                            logger.lifecycle "🔍 DIAGNOSIS: Parent POM resolution returned ${resolved.size()} files"
+                            
                             if (!resolved.isEmpty()) {
                                 if (!parentDir.exists() && !parentDir.mkdirs()) {
                                     throw new GradleException("Failed to create directory: $parentDir")
                                 }
                                 
                                 resolved.each { file ->
-                                    def targetFile = new File(parentDir, "${artifact}-${version}.pom")
-                                    logger.lifecycle "📦 Copying parent POM: ${file.name} -> ${targetFile.name}"
-                                    project.copy {
-                                        from file
-                                        into parentDir
-                                        rename { fileName -> "${artifact}-${version}.pom" }
-                                    }
-                                    resolvedParents++
+                                    logger.lifecycle "🔍 DIAGNOSIS: Checking parent POM file ${file.name} - expected: ${artifact}-${version}.pom"
                                     
-                                    // Check if this parent POM has its own parent
-                                    def grandParentRef = extractParentPomReference(targetFile)
-                                    if (grandParentRef && !processedParents.contains(grandParentRef)) {
-                                        parentsToProcess.add(grandParentRef)
-                                        logger.lifecycle "🔗 Found grandparent reference: ${grandParentRef}"
+                                    // DIAGNOSIS: Validate file belongs to requested artifact
+                                    if (file.name.endsWith('.pom') && (file.name.startsWith("${artifact}-${version}") || file.name == "${artifact}-${version}.pom")) {
+                                        def targetFile = new File(parentDir, "${artifact}-${version}.pom")
+                                        logger.lifecycle "✅ DIAGNOSIS: File ${file.name} matches expected parent POM pattern, copying to ${targetFile.name}"
+                                        project.copy {
+                                            from file
+                                            into parentDir
+                                            rename { fileName -> "${artifact}-${version}.pom" }
+                                        }
+                                        resolvedParents++
+                                        
+                                        // Check if this parent POM has its own parent
+                                        def grandParentRef = extractParentPomReference(targetFile)
+                                        if (grandParentRef && !processedParents.contains(grandParentRef)) {
+                                            parentsToProcess.add(grandParentRef)
+                                            logger.lifecycle "🔗 Found grandparent reference: ${grandParentRef}"
+                                        }
+                                    } else {
+                                        logger.warn "❌ DIAGNOSIS: SKIPPING ${file.name} - does not match expected parent POM pattern ${artifact}-${version}.pom (potential transitive contamination)"
                                     }
                                 }
                             }
@@ -399,7 +427,13 @@ def resolveParentPomsRecursively() {
 // Helper method to resolve artifacts using Gradle's variant-aware dependency resolution
 def resolveVariantArtifacts(String group, String name, String version, File artifactDir, String type) {
     try {
+        logger.lifecycle "🔍 DIAGNOSIS: resolveVariantArtifacts for ${group}:${name}:${version} ${type} into ${artifactDir.name}"
+        
         def conf = configurations.detachedConfiguration()
+        // DIAGNOSIS: Add transitive = false to prevent contamination
+        conf.transitive = false
+        logger.lifecycle "🔍 DIAGNOSIS: Set transitive=false for variant resolution"
+        
         conf.attributes {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
             attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
@@ -412,17 +446,29 @@ def resolveVariantArtifacts(String group, String name, String version, File arti
 
         conf.dependencies.add(dependencies.create("${group}:${name}:${version}"))
 
-        conf.resolve().each { file ->
+        def resolved = conf.resolve()
+        logger.lifecycle "🔍 DIAGNOSIS: Variant resolution returned ${resolved.size()} files"
+        
+        resolved.each { file ->
+            logger.lifecycle "🔍 DIAGNOSIS: Checking file ${file.name} - expected pattern: ${name}-${version}"
+            
             def target = new File(artifactDir, file.name)
             if (!target.exists()) {
-                logger.info "Copying ${type} artifact: $file to $target"
-                project.copy {
-                    from file
-                    into artifactDir
+                // DIAGNOSIS: Validate file belongs to requested artifact
+                if (file.name.startsWith("${name}-${version}") || file.name == "${name}-${version}.${type}") {
+                    logger.lifecycle "✅ DIAGNOSIS: File ${file.name} matches expected artifact pattern, copying to ${target.name}"
+                    project.copy {
+                        from file
+                        into artifactDir
+                    }
+                    if (target.exists() && target.length() > 0) {
+                        logger.info "Successfully copied ${type}: ${file.name} (${target.length()} bytes)"
+                    }
+                } else {
+                    logger.warn "❌ DIAGNOSIS: SKIPPING ${file.name} - does not match expected artifact pattern ${name}-${version} (potential transitive contamination)"
                 }
-                if (target.exists() && target.length() > 0) {
-                    logger.info "Successfully copied ${type}: ${file.name} (${target.length()} bytes)"
-                }
+            } else {
+                logger.lifecycle "🔍 DIAGNOSIS: File ${file.name} already exists, skipping"
             }
         }
     } catch (Exception e) {
@@ -474,13 +520,19 @@ def resolvePluginRuntimeDependencies() {
                 def targetFile = new File(artifactDir, "${artifact}-${version}.jar")
                 
                 if (!targetFile.exists()) {
-                    logger.lifecycle "📦 Resolving plugin runtime dependency: ${depCoords}"
+                    logger.lifecycle "🔍 DIAGNOSIS: Resolving plugin runtime dependency ${depCoords} into ${artifactDir.name}"
                     
                     def depConf = configurations.detachedConfiguration()
+                    // DIAGNOSIS: Add transitive = false to prevent contamination
+                    depConf.transitive = false
+                    logger.lifecycle "🔍 DIAGNOSIS: Set transitive=false for plugin runtime dependency resolution"
+                    
                     def dependency = dependencies.create(depCoords)
                     depConf.dependencies.add(dependency)
                     
                     def resolved = depConf.resolve()
+                    logger.lifecycle "🔍 DIAGNOSIS: Plugin runtime dependency resolution returned ${resolved.size()} files"
+                    
                     if (!resolved.isEmpty()) {
                         if (!artifactDir.exists() && !artifactDir.mkdirs()) {
                             throw new GradleException("Failed to create directory: $artifactDir")
@@ -488,11 +540,13 @@ def resolvePluginRuntimeDependencies() {
                         
                         // Only copy files that actually match the requested artifact
                         resolved.each { file ->
+                            logger.lifecycle "🔍 DIAGNOSIS: Checking plugin file ${file.name} - expected pattern: ${artifact}-${version}"
+                            
                             // Only copy if filename matches the expected artifact pattern
                             if (file.name.startsWith("${artifact}-${version}")) {
                                 def targetName = file.name
                                 def target = new File(artifactDir, targetName)
-                                logger.lifecycle "📦 Copying plugin runtime dependency: ${file.name} -> ${targetName}"
+                                logger.lifecycle "✅ DIAGNOSIS: File ${file.name} matches expected plugin artifact pattern, copying to ${targetName}"
                                 project.copy {
                                     from file
                                     into artifactDir
@@ -503,7 +557,7 @@ def resolvePluginRuntimeDependencies() {
                                 // transitive dependency pollution in artifact directories
                                 // Each plugin dependency is resolved individually in the loop
                             } else {
-                                logger.debug "Skipping transitive dependency file: ${file.name} (not main artifact for ${artifact})"
+                                logger.warn "❌ DIAGNOSIS: SKIPPING ${file.name} - does not match expected plugin artifact pattern ${artifact}-${version} (potential transitive contamination)"
                             }
                         }
                     }

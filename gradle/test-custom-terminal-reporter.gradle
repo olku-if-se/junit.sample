@@ -51,6 +51,12 @@ jacocoTestReport {
         csv.required = !project.hasProperty("NoReports")
         html.required = !project.hasProperty("NoReports")
     }
+
+    // Point JaCoCo to Gosu source files
+    sourceDirectories.setFrom(files([
+            'src/main/gosu',
+            'src/test/gosu'
+    ]))
 }
 
 tasks.withType(Test).configureEach {
