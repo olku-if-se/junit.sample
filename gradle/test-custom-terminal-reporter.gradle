@@ -55,7 +55,9 @@ jacocoTestReport {
     // Point JaCoCo to Gosu source files
     sourceDirectories.setFrom(files([
             'src/main/gosu',
-            'src/test/gosu'
+            'src/test/gosu',
+            'src/main/java',
+            'src/test/java'
     ]))
 }
 
