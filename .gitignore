@@ -61,3 +61,7 @@ agents/
 
 ### Secrets ###
 .secrets/
+
+### AI Coding ###
+.claude/
+.mcp.json

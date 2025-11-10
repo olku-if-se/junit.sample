@@ -41,7 +41,10 @@ public class GosuFilterAgent {
         System.out.println(LOG_PREFIX + " Agent installed - waiting for JaCoCo to load...");
         System.out.println(LOG_PREFIX + " Patterns to detect:");
         System.out.println(LOG_PREFIX + "   1. Null-safe navigation: aload → ifnonnull → aconst_null → checkcast → goto");
-        System.out.println(LOG_PREFIX + "   2. Defensive null check: aload → ifnonnull → new NPE → athrow");
+        System.out.println(LOG_PREFIX + "   2. Defensive null check: aload → ifnonnull → new NPE → dup → invokespecial → athrow");
+        System.out.println(LOG_PREFIX + "   3. Simplified null-safe: aload → ifnonnull → aconst_null → goto/areturn");
+        System.out.println(LOG_PREFIX + "   4. Boolean null-safe: aload → ifnonnull → iconst_0/iconst_1 → goto");
+        System.out.println(LOG_PREFIX + "   5. Array null-safe: aload → ifnonnull → iconst_0/anewarray → checkcast → goto");
         System.out.println(LOG_PREFIX + " ========================================\n");
     }
 

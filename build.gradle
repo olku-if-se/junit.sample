@@ -93,7 +93,17 @@ test {
     def filterAgentPath = file("${rootProject.projectDir}/agents/gosu-filter-agent.jar").absolutePath
 
     doFirst {
+        // Enable dynamic agent loading for Java 9+
+        jvmArgs "-XX:+EnableDynamicAgentLoading"
+
+        // Load Gosu filter agent FIRST so it can intercept JaCoCo classes
         jvmArgs "-javaagent:${filterAgentPath}"
+
+        // JaCoCo agent will be loaded automatically by the JaCoCo Gradle plugin
+        // The agent JAR is resolved from the JaCoCo classpath during test execution
+        println "Loading Gosu filter agent: ${filterAgentPath}"
+        println "JaCoCo agent will be loaded by Gradle JaCoCo plugin"
+        println "Dynamic agent loading enabled"
 
         println "JVM Args for test:"
         jvmArgs.each { println "  ${it}" }

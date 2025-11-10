@@ -9,10 +9,15 @@ repositories {
     mavenCentral()
 }
 
-// Force Java 11 compatibility (or Java 8 for maximum compatibility)
+// Force Java 11 compatibility (required for Byte Buddy compatibility)
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
+}
+
+// Add system property for Byte Buddy experimental Java 21 support
+test {
+    jvmArgs += ["-Dnet.bytebuddy.experimental=true"]
 }
 
 dependencies {
@@ -20,17 +25,27 @@ dependencies {
     compileOnly 'org.jacoco:org.jacoco.core:0.8.14'
 
     // ASM for bytecode transformation (MUST be bundled in agent JAR)
-    implementation 'org.ow2.asm:asm:9.7'
-    implementation 'org.ow2.asm:asm-tree:9.7'
-    implementation 'org.ow2.asm:asm-commons:9.7'
+    implementation 'org.ow2.asm:asm:9.9'
+    implementation 'org.ow2.asm:asm-tree:9.9'
+    implementation 'org.ow2.asm:asm-commons:9.9'
+
+    // ByteBuddy for enhanced agent testing and runtime instrumentation
+    implementation 'net.bytebuddy:byte-buddy:1.17.8'
+    implementation 'net.bytebuddy:byte-buddy-agent:1.17.8'
 
     // Testing dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'org.junit.platform:junit-platform-suite-api:1.10.0'
+    testImplementation 'org.junit.platform:junit-platform-suite-engine:1.10.0'
     testImplementation 'org.jacoco:org.jacoco.core:0.8.14' // Full dependency for tests
     testImplementation 'org.mockito:mockito-core:5.0.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.0.0'
     testImplementation 'ch.qos.logback:logback-classic:1.4.0'
+
+    // ByteBuddy for testing (enhanced agent testing capabilities)
+    testImplementation 'net.bytebuddy:byte-buddy:1.17.8'
+    testImplementation 'net.bytebuddy:byte-buddy-agent:1.17.8'
 }
 
 jar {
@@ -59,12 +74,31 @@ test {
     // Make sure the main project is compiled first
     dependsOn ':compileGosu'
 
-    // Pass system properties for debugging
+    // Add system properties for debugging and Byte Buddy
     systemProperty "jacoco.gosu.filter.debug", "true"
     systemProperty "run.integration.tests", "true"
     systemProperty "test.agent.loading", "true"
     systemProperty "test.pattern.detection", "true"
     systemProperty "test.coverage.analysis", "true"
+    systemProperty "net.bytebuddy.experimental", "true"
+
+    // Enable runtime agent attachment tests
+    jvmArgs += [
+            "-Dnet.bytebuddy.experimental=true",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "-Djdk.attach.allowAttachSelf=true"  // Enable self-attachment for testing
+    ]
+
+    // Add tools.jar to classpath for attach API (if available)
+    if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_1_8) &&
+            JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_11)) {
+        // For Java 8-11, tools.jar might be needed
+        def javaHome = System.getProperty('java.home')
+        def toolsJar = new File(javaHome, '../lib/tools.jar')
+        if (toolsJar.exists()) {
+            classpath += files(toolsJar)
+        }
+    }
 
     // Show test output
 //    testLogging {
@@ -76,6 +110,38 @@ test {
 
     // Set working directory to root project (to access build/classes)
     workingDir rootProject.projectDir
+}
+
+// Task for runtime agent tests
+tasks.register('runtimeAgentTest', Test) {
+    useJUnitPlatform()
+
+    description "Runs tests that verify runtime agent loading and attachment"
+    group "verification"
+
+    // Only run runtime agent tests
+    include "**/GosuFilterAgentLoadingTest.class"
+    include "**/GosuFilterAgentRuntimeTest.class"
+    include "**/GosuFilterAgentManifestTest.class"
+
+    // Ensure agent JAR is built first
+    dependsOn jar
+
+    // Enable self-attachment
+    jvmArgs += [
+            "-Djdk.attach.allowAttachSelf=true",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED"
+    ]
+
+    systemProperty "runtime.agent.test", "true"
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
 }
 
 // Task to copy agent JAR to a known location
