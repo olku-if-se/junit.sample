@@ -2,6 +2,8 @@ plugins {
     id 'java'
 }
 
+apply from: "$rootDir/gradle/test-custom-terminal-reporter.gradle"
+
 repositories {
     maven { url project.file(localRepoPath) }
     mavenCentral()
@@ -59,14 +61,18 @@ test {
 
     // Pass system properties for debugging
     systemProperty "jacoco.gosu.filter.debug", "true"
+    systemProperty "run.integration.tests", "true"
+    systemProperty "test.agent.loading", "true"
+    systemProperty "test.pattern.detection", "true"
+    systemProperty "test.coverage.analysis", "true"
 
     // Show test output
-    testLogging {
-        events "passed", "skipped", "failed"
-        showExceptions true
-        showCauses true
-        showStackTraces true
-    }
+//    testLogging {
+//        events "passed", "skipped", "failed"
+//        showExceptions true
+//        showCauses true
+//        showStackTraces true
+//    }
 
     // Set working directory to root project (to access build/classes)
     workingDir rootProject.projectDir

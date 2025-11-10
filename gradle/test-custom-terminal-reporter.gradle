@@ -44,21 +44,22 @@ test {
     }
 }
 
+plugins.withId("jacoco") {
+    jacocoTestReport {
+        reports {
+            xml.required = !project.hasProperty("NoReports")
+            csv.required = !project.hasProperty("NoReports")
+            html.required = !project.hasProperty("NoReports")
+        }
 
-jacocoTestReport {
-    reports {
-        xml.required = !project.hasProperty("NoReports")
-        csv.required = !project.hasProperty("NoReports")
-        html.required = !project.hasProperty("NoReports")
+        // Point JaCoCo to Gosu source files
+        sourceDirectories.setFrom(files([
+                'src/main/gosu',
+                'src/test/gosu',
+                'src/main/java',
+                'src/test/java'
+        ]))
     }
-
-    // Point JaCoCo to Gosu source files
-    sourceDirectories.setFrom(files([
-            'src/main/gosu',
-            'src/test/gosu',
-            'src/main/java',
-            'src/test/java'
-    ]))
 }
 
 tasks.withType(Test).configureEach {
