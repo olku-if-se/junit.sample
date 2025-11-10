@@ -88,6 +88,17 @@ dependencies {
 }
 
 test {
+    dependsOn ':jacoco-gosu-filter:copyAgentJar' // Ensure the agent JAR is copied before tests
+
+    def filterAgentPath = file("${rootProject.projectDir}/agents/gosu-filter-agent.jar").absolutePath
+
+    doFirst {
+        jvmArgs "-javaagent:${filterAgentPath}"
+
+        println "JVM Args for test:"
+        jvmArgs.each { println "  ${it}" }
+    }
+
     useJUnitPlatform()
 
     jacoco {
@@ -135,3 +146,74 @@ idea {
     }
 }
 
+jacocoTestReport {
+    dependsOn test // Ensure tests are run before generating the report
+
+    doLast {
+        println ""
+        println "=" * 80
+        println "JaCoCo Report Generated:"
+        println "  HTML: file:///${reports.html.outputLocation.get()}/index.html"
+        println "  CSV:  file:///${reports.csv.outputLocation.get()}"
+        println "  XML:  file:///${reports.xml.outputLocation.get()}"
+        println "=" * 80
+        println ""
+    }
+}
+task viewReport {
+    dependsOn jacocoTestReport
+    doLast {
+        def reportFile = file("${buildDir}/reports/jacoco/test/html/index.html")
+        if (reportFile.exists()) {
+            println "\n" + "=" * 80
+            println "Opening JaCoCo HTML Report..."
+            println reportFile.absolutePath
+            println "=" * 80 + "\n"
+
+            // Try to open browser (platform-specific)
+            def os = System.getProperty('os.name').toLowerCase()
+            if (os.contains('windows')) {
+                exec { commandLine 'cmd', '/c', "start ${reportFile.absolutePath}" }
+            } else if (os.contains('mac')) {
+                exec { commandLine 'open', reportFile.absolutePath }
+            } else {
+                exec { commandLine 'xdg-open', reportFile.absolutePath }
+            }
+        }
+    }
+}
+
+task compareCoverage {
+    description = 'Shows branch coverage summary'
+    dependsOn jacocoTestReport
+
+    doLast {
+        def csvFile = file("${buildDir}/reports/jacoco/test/jacocoTestReport.csv")
+        if (csvFile.exists()) {
+            println ""
+            println "=" * 80
+            println "BRANCH COVERAGE SUMMARY"
+            println "=" * 80
+
+            csvFile.eachLine { line ->
+                if (line.contains('PolicyPeriodEnhancement') && !line.startsWith('GROUP')) {
+                    def parts = line.split(',')
+                    if (parts.length >= 12) {
+                        def method = parts[3]
+                        def branchMissed = parts[9]
+                        def branchCovered = parts[10]
+                        def branchTotal = (branchMissed as int) + (branchCovered as int)
+
+                        if (branchTotal > 0) {
+                            def coverage = ((branchCovered as int) / branchTotal * 100) as int
+                            printf("%-50s | %2d branches | %3d%% covered\n",
+                                    method.take(50), branchTotal, coverage)
+                        }
+                    }
+                }
+            }
+            println "=" * 80
+            println ""
+        }
+    }
+}

@@ -4,3 +4,5 @@ apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
 
 resolvePlatformSpecifics("org.gradle.java.home")
 resolvePlatformSpecifics("org.gradle.java.installations.paths", [mode: 'all'])
+
+include 'jacoco-gosu-filter'

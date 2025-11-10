@@ -1,0 +1,83 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    maven { url project.file(localRepoPath) }
+    mavenCentral()
+}
+
+// Force Java 11 compatibility (or Java 8 for maximum compatibility)
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+dependencies {
+    // JaCoCo core for filter interfaces (compileOnly - provided by JaCoCo runtime)
+    compileOnly 'org.jacoco:org.jacoco.core:0.8.14'
+
+    // ASM for bytecode transformation (MUST be bundled in agent JAR)
+    implementation 'org.ow2.asm:asm:9.7'
+    implementation 'org.ow2.asm:asm-tree:9.7'
+    implementation 'org.ow2.asm:asm-commons:9.7'
+
+    // Testing dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'org.jacoco:org.jacoco.core:0.8.14' // Full dependency for tests
+    testImplementation 'org.mockito:mockito-core:5.0.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.0.0'
+    testImplementation 'ch.qos.logback:logback-classic:1.4.0'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'org.jacoco.gosu.GosuFilterAgent',
+                'Agent-Class': 'org.jacoco.gosu.GosuFilterAgent',
+                'Can-Redefine-Classes': 'true',
+                'Can-Retransform-Classes': 'true',
+                'Boot-Class-Path': jar.archiveFileName.get()
+        )
+    }
+
+    // Include dependencies in JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Configure testing
+test {
+    useJUnitPlatform()
+
+    // Make sure the main project is compiled first
+    dependsOn ':compileGosu'
+
+    // Pass system properties for debugging
+    systemProperty "jacoco.gosu.filter.debug", "true"
+
+    // Show test output
+    testLogging {
+        events "passed", "skipped", "failed"
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
+
+    // Set working directory to root project (to access build/classes)
+    workingDir rootProject.projectDir
+}
+
+// Task to copy agent JAR to a known location
+tasks.register('copyAgentJar', Copy) {
+    dependsOn tasks.named('jar')
+    from(tasks.named('jar').flatMap { it.archiveFile })
+    into "${rootProject.projectDir}/agents"
+    rename { 'gosu-filter-agent.jar' }
+}
+
+build.finalizedBy 'copyAgentJar'

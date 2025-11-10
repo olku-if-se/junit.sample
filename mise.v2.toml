@@ -1,8 +1,8 @@
 # See: https://mise.jdx.dev/tasks/
 
+
 [tools]
-java = "21"
-node = "24" # required for Claude
+node = "24"
 age = "latest"   # Encryption tool for SOPS
 sops = "latest"  # Secret encryption/decryption
 

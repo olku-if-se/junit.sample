@@ -46,9 +46,18 @@ bin/
 *.log
 *.tmp
 *.~*~
+*.bak
+*.swp
+*.orig
 
 ### Execution Graph ###
 execution.log.md
 
 ### Offline Repository ###
 repository/
+
+### Custom JaCoCo Agent ###
+agents/
+
+### Secrets ###
+.secrets/
