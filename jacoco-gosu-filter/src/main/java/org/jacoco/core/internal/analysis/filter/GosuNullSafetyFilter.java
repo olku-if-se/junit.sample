@@ -29,10 +29,12 @@ public final class GosuNullSafetyFilter implements IFilter {
 
     public void filter(final MethodNode methodNode,
                        final IFilterContext context, final IFilterOutput output) {
+        System.err.println("[GosuFilter-DEBUG] Starting filter for method: " + methodNode.name);
         final Matcher matcher = new Matcher();
         for (final AbstractInsnNode i : methodNode.instructions) {
             matcher.match(i, output);
         }
+        System.err.println("[GosuFilter-DEBUG] Finished filtering method: " + methodNode.name);
     }
 
     /**
@@ -181,9 +183,17 @@ public final class GosuNullSafetyFilter implements IFilter {
             final JumpInsnNode jump = (JumpInsnNode) jumpCapture.node;
             if (jump.label == null)
                 return false;
-            if (!matcher.safeNext())
-                return false;
-            return matcher.cursor == jump.label;
+            System.err.println("[GosuFilter-DEBUG] LabelMatchStep: Checking label " + jump.label + " from jump " + jump + ", cursor before advance: " + matcher.cursor);
+            // From current cursor (after GOTO), check if next is the target label
+            AbstractInsnNode nextAfterGoto = matcher.cursor.getNext();
+            if (nextAfterGoto == jump.label) {
+                // Skip the label to the next opcode
+                matcher.cursor = AbstractMatcher.skipNonOpcodes(jump.label.getNext());
+                System.err.println("[GosuFilter-DEBUG] LabelMatchStep: Found label, advanced cursor to " + matcher.cursor + " (type: " + (matcher.cursor != null ? matcher.cursor.getClass().getSimpleName() : "null") + ")");
+                return true;
+            }
+            System.err.println("[GosuFilter-DEBUG] LabelMatchStep: Next after GOTO is " + nextAfterGoto + ", expected " + jump.label + " - mismatch");
+            return false;
         }
     }
 
@@ -202,29 +212,32 @@ public final class GosuNullSafetyFilter implements IFilter {
             if (start.getOpcode() != org.objectweb.asm.Opcodes.ALOAD) {
                 return;
             }
+            System.err.println("[GosuFilter-DEBUG] Found ALOAD at " + start + ", var=" + ((VarInsnNode) start).var + ", attempting patterns");
             cursor = start;
             final VarInsnNode var = (VarInsnNode) start;
 
             // Try to match Gosu null-safety patterns
+            System.err.println("[GosuFilter-DEBUG] Trying null-safe navigation");
             if (matchNullSafeNavigation(var, output)) {
                 return;
             }
-
+            System.err.println("[GosuFilter-DEBUG] Trying defensive null check");
             if (matchDefensiveNullCheck(var, output)) {
                 return;
             }
-
+            System.err.println("[GosuFilter-DEBUG] Trying simplified null-safe");
             if (matchSimplifiedNullSafe(var, output)) {
                 return;
             }
-
+            System.err.println("[GosuFilter-DEBUG] Trying boolean null-safe");
             if (matchBooleanNullSafe(var, output)) {
                 return;
             }
-
+            System.err.println("[GosuFilter-DEBUG] Trying array null-safe");
             if (matchArrayNullSafe(var, output)) {
                 return;
             }
+            System.err.println("[GosuFilter-DEBUG] No patterns matched for ALOAD " + start);
         }
 
         /**
@@ -234,11 +247,17 @@ public final class GosuNullSafetyFilter implements IFilter {
          * @return true if all steps match
          */
         private boolean matchPattern(final PatternStep[] steps) {
-            for (final PatternStep step : steps) {
+            System.err.println("[GosuFilter-DEBUG] matchPattern: Starting with " + steps.length + " steps, initial cursor: " + cursor);
+            for (int idx = 0; idx < steps.length; idx++) {
+                final PatternStep step = steps[idx];
+                System.err.println("[GosuFilter-DEBUG] matchPattern: Step " + (idx+1) + " (" + step.getClass().getSimpleName() + "), cursor before: " + cursor);
                 if (!step.match(this)) {
+                    System.err.println("[GosuFilter-DEBUG] matchPattern: Step " + (idx+1) + " failed, cursor after fail: " + cursor);
                     return false;
                 }
+                System.err.println("[GosuFilter-DEBUG] matchPattern: Step " + (idx+1) + " succeeded, cursor after: " + cursor);
             }
+            System.err.println("[GosuFilter-DEBUG] matchPattern: All steps succeeded, final cursor: " + cursor);
             return true;
         }
 
@@ -262,11 +281,12 @@ public final class GosuNullSafetyFilter implements IFilter {
                 final JumpInsnNode ifnonnull = (JumpInsnNode) ifnonnullCapture.node;
 
                 // Pattern matched - ignore the null-safety check
+                System.err.println("[GosuFilter-DEBUG] matchNullSafeNavigation: Pattern matched! Ignoring null branch: " + var + " to " + ifnonnull + ", method branch: " + ifnonnull.label + " to " + cursor);
                 output.ignore(var, ifnonnull);
                 output.ignore(ifnonnull.label, cursor);
                 return true;
             }
-
+            System.err.println("[GosuFilter-DEBUG] matchNullSafeNavigation: Pattern failed");
             return false;
         }
 
