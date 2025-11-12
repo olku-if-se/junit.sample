@@ -1,0 +1,4 @@
+jacocoTestReport.doFirst {
+    println "JaCoCo Ant Classpath:"
+    configurations.jacocoAnt.files.each { println "  - ${it.name}" }
+}

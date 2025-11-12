@@ -165,7 +165,7 @@ public class Example {
 }
 ```
 
-**Logsging Configuration**:
+**Logging Configuration**:
 
 ```java
 public class Example {
@@ -242,6 +242,49 @@ Cons:
 
 Based on sample: https://github.com/gosu-lang/example-gradle-hybrid
 
+### Step 12: JaCoco Branches Coverage Filtering
+
+Gosu/Manifold generated code creates noise in the JaCoCo reports. Mostly it is due to null-safety checks added by Manifold.
+As result original JaCoCo report shows large number of missed branches. To resolve this problem we should create a custom build of JaCoCo with enabled gosu filter.
+
+Current project contains only Filter logic, so we can debug, test and modify it in a playground isolation. 
+
+Original fork of JaCoCo with applied Gosu filter is available here: https://dev.azure.com/if-it/mobility-CTP/_git/jacoco?path=/jacoco-gosu-distribution
+
+Our patched JaCoCo provides distribution ZIP archive: `jacoco-gosu-maven-repo-0.8.14-SNAPSHOT+gosu.1.zip` which internally contains local Maven repository with our JaCoCo artifacts.
+
+Usage steps:
+- download archive
+- open it in 7zip File Manager or similar tool
+- drag `repository` folder to you project root folder
+- modify `build.gradle` to use custom JaCoCo artifacts from local repository:
+
+```groovy
+ext {
+    jacocoVersion = "0.8.14-SNAPSHOT+gosu.1"
+    localRepoPath = "${rootDir}${File.separator}repository"
+}
+
+println "✅ Using local Maven repository at: $localRepoPath"
+
+repositories {
+    maven { url project.file(localRepoPath) }
+    mavenCentral()
+}
+
+jacoco {
+    // our custom JaCoCo build with Gosu support
+    toolVersion = "${jacocoVersion}"
+}
+
+dependencies {
+    // force resolution of the custom version over the local offline repository
+    jacocoAnt "org.jacoco:org.jacoco.ant:${jacoco.toolVersion}"
+    jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}"
+}
+```
+## Appendix: Other Useful Commands
+
 #### Run On GitHub CodeSpaces
 
 ```bash
@@ -254,3 +297,49 @@ sdk install java 21.0.7-amzn
 ls -la /usr/local/sdkman/candidates/java
 ```
 
+### Automatic JDK finding for Gradle Project
+
+Expectations:
+1. on first run project will automatically find installed JDK versions and configure `gradle.properties` file with proper JDK paths.
+2. JAVA_HOME environment variable configured with any JDK version.
+
+```properties
+# gradle.properties
+
+#
+# Make Gradle run on Java 21 and project on Java 11
+#
+org.gradle.java.home.multi = windows\:%USERPROFILE%\\scoop\\apps\\corretto-jdk\\current, windows\:%JAVA_HOME%, linux\:/home/codespace/java/21.0.7-amzn, linux\:${JAVA_HOME}, linux\:${JAVA_HOME_21_X64}
+#
+# Use Java 11 for compilation (make java toolchain find all installed JDKs)
+#
+org.gradle.java.installations.paths.multi = windows\:%USERPROFILE%\\scoop\\apps\\corretto11-jdk\\current, windows\:%USERPROFILE%\\scoop\\apps\\corretto17-jdk\\current, windows\:%USERPROFILE%\\scoop\\apps\\corretto-jdk\\current, windows\:%JAVA_HOME%, linux\:/home/codespace/java/11.0.27-amzn/, linux\:${JAVA_HOME}, linux\:${JAVA_HOME_11_X64}, linux\:${JAVA_HOME_21_X64}
+```
+
+```groovy
+// settings.gradle
+apply from: "$rootDir/gradle/resolve-platform-specifics.gradle"
+
+resolvePlatformSpecifics("org.gradle.java.home")
+resolvePlatformSpecifics("org.gradle.java.installations.paths", [mode: 'all'])
+```
+
+on first run into `gradle.properties` will be added:
+
+```properties
+#
+# Auto-Generated from org.gradle.java.home.multi
+# and patched by gradle/resolve-platform-specifics.gradle script
+#
+org.gradle.java.home = C\:\\Users\\KUCOLE\\scoop\\apps\\corretto21-jdk\\21.0.9.10.1
+#
+# Auto-Generated from org.gradle.java.installations.paths.multi
+# and patched by gradle/resolve-platform-specifics.gradle script
+#
+org.gradle.java.installations.paths = C\:\\Users\\KUCOLE\\scoop\\apps\\corretto11-jdk\\11.0.29.7.1,C\:\\Users\\KUCOLE\\scoop\\apps\\corretto17-jdk\\17.0.17.10.1,C\:\\Users\\KUCOLE\\scoop\\apps\\corretto21-jdk\\21.0.9.10.1
+```
+
+if you need to re-configure JDK paths - just delete auto-generated properties and re-run Gradle build.
+
+Known issues:
+- `gradle.properties` loaded too early into Gradle process, so if you have a wrong path in `org.gradle.java.home` - Gradle will fail to start.

@@ -1,0 +1,74 @@
+/**
+ * Gradle Init Script: JaCoCo Gosu Filter Agent Loader
+ *
+ * This script ensures the Gosu filter agent is loaded into the Gradle daemon JVM
+ * so it can intercept JaCoCo's Filters class during report generation.
+ *
+ * IMPORTANT: This must be loaded as an init script:
+ *   - Via gradle.properties: org.gradle.jvmargs=-javaagent:...
+ *   - OR manually: gradle --init-script gradle/gosu-filter-agent-loader.gradle
+ */
+
+// Configuration
+ext {
+    gosuFilterVersion = '1.0.0'
+    agentDir = new File(gradle.gradleUserHomeDir.parentFile, 'workspace/junit.sample/agents')
+    agentJarVersioned = new File(agentDir, "gosu-filter-agent-${gosuFilterVersion}.jar")
+    agentJarLatest = new File(agentDir, 'gosu-filter-agent.jar')
+}
+
+// Check if agent is available
+def agentAvailable = agentJarVersioned.exists() || agentJarLatest.exists()
+def agentPath = agentJarVersioned.exists() ? agentJarVersioned : agentJarLatest
+
+println """
+================================================================================
+JaCoCo Gosu Filter Agent Loader
+================================================================================
+Required Version: ${gosuFilterVersion}
+Agent Directory:  ${agentDir}
+Versioned JAR:    ${agentJarVersioned.exists() ? '✓ Found' : '✗ Missing'}
+Latest JAR:       ${agentJarLatest.exists() ? '✓ Found' : '✗ Missing'}
+================================================================================
+"""
+
+if (!agentAvailable) {
+    println """
+⚠️  WARNING: Gosu filter agent not found!
+
+The JaCoCo Gosu filter requires a pre-built agent JAR to function.
+
+ACTION REQUIRED:
+1. Build the agent:
+   ./gradlew :jacoco-gosu-filter:build
+
+2. Restart Gradle daemon to load the agent:
+   ./gradlew --stop
+   ./gradlew jacocoTestReport
+
+The agent will be automatically loaded on the next Gradle startup.
+================================================================================
+"""
+} else {
+    println """
+✓ Agent found: ${agentPath.name}
+
+To activate the agent, you must load it into the Gradle daemon JVM.
+
+OPTION 1: Modify gradle.properties (RECOMMENDED)
+Add this line to gradle.properties:
+  org.gradle.jvmargs=-Xmx4g -javaagent:${agentPath.absolutePath}
+
+OPTION 2: Use GRADLE_OPTS environment variable
+  export GRADLE_OPTS="-javaagent:${agentPath.absolutePath}"
+  ./gradlew jacocoTestReport
+
+OPTION 3: Use the fallback forked process (see build.gradle)
+  The build.gradle includes a fallback that forks jacocoTestReport with the agent
+
+After modifying gradle.properties or setting GRADLE_OPTS:
+  ./gradlew --stop      # Stop current daemon
+  ./gradlew jacocoTestReport  # Start new daemon with agent
+================================================================================
+"""
+}

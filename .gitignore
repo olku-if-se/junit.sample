@@ -58,6 +58,7 @@ repository/
 
 ### Custom JaCoCo Agent ###
 agents/
+!.outdated/agents
 
 ### Secrets ###
 .secrets/

@@ -37,19 +37,18 @@ java {
 compileJava.options.release = JdkVersion
 
 // Force Specific JaCoCo Version with Gosu Support
+ext {
+    jacocoVersion = "0.8.14-SNAPSHOT+gosu.1"
+}
 jacoco {
     // our custom JaCoCo build with Gosu support
-    toolVersion = "0.8.14-SNAPSHOT+gosu.1"
+    toolVersion = "${jacocoVersion}"
 }
 
 dependencies {
     // force resolution of the custom version over the local offline repository
     jacocoAnt "org.jacoco:org.jacoco.ant:${jacoco.toolVersion}"
     jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}"
-
-    jacocoAnt 'org.ow2.asm:asm:9.9'
-    jacocoAnt 'org.ow2.asm:asm-tree:9.9'
-    jacocoAnt 'org.ow2.asm:asm-commons:9.9'
 }
 
 // Include Gosu source sets Into Compilation Process
@@ -152,20 +151,9 @@ idea {
 
 jacocoTestReport {
     dependsOn test // Ensure tests are run before generating the report
-
-    doLast {
-        println ""
-        println "=" * 80
-        println "JaCoCo Report Generated:"
-        println "  HTML: file:///${reports.html.outputLocation.get()}/index.html"
-        println "  CSV:  file:///${reports.csv.outputLocation.get()}"
-        println "  XML:  file:///${reports.xml.outputLocation.get()}"
-        println "=" * 80
-        println ""
-    }
 }
 
-task viewReport {
+tasks.register('viewReport') {
     //dependsOn jacocoTestReport
     doLast {
         def reportFile = file("${buildDir}/reports/jacoco/test/html/index.html")
@@ -179,8 +167,8 @@ task viewReport {
             def os = System.getProperty('os.name').toLowerCase()
             if (os.contains('windows') || isWSL2()) {
                 def windowsPath = reportFile.absolutePath
+                // Convert WSL path to Windows-compatible path
                 if (isWSL2()) {
-                    // Convert WSL path to Windows-compatible path
                     windowsPath = convertWSLPathToWindows(reportFile.absolutePath)
                 }
                 // Use full Windows path to cmd.exe when in WSL2
@@ -195,7 +183,7 @@ task viewReport {
     }
 }
 
-def isWSL2() {
+static def isWSL2() {
     try {
         def versionFile = new File('/proc/version')
         if (versionFile.exists()) {
@@ -208,7 +196,7 @@ def isWSL2() {
     return false
 }
 
-def convertWSLPathToWindows(linuxPath) {
+static def convertWSLPathToWindows(linuxPath) {
     try {
         // Try using wslpath command for proper Windows path resolution
         def process = ['wslpath', '-w', linuxPath].execute()
@@ -224,71 +212,4 @@ def convertWSLPathToWindows(linuxPath) {
     // Remove leading slash and convert forward slashes to backslashes
     def wslPath = linuxPath.substring(1).replace('/', '\\')
     return "\\\\wsl.localhost\\Ubuntu\\${wslPath}"
-}
-
-task debugGosuFilterProperty {
-    description = 'Debug Gosu filter property resolution'
-    doLast {
-        println "=== Debugging Gosu Filter Property ==="
-        println "project.hasProperty('jacoco.gosu.filter.enabled'): ${project.hasProperty('jacoco.gosu.filter.enabled')}"
-
-        if (project.hasProperty('jacoco.gosu.filter.enabled')) {
-            println "project.property('jacoco.gosu.filter.enabled'): ${project.property('jacoco.gosu.filter.enabled')}"
-            println "property class: ${project.property('jacoco.gosu.filter.enabled').getClass()}"
-        }
-
-        // Try alternative ways to access the property
-        println "Properties with 'jacoco' prefix:"
-        project.properties.each { key, value ->
-            if (key.toString().contains('jacoco')) {
-                println "  ${key}: ${value} (${value?.getClass()})"
-            }
-        }
-
-        // Check gradle.properties access
-        def props = new Properties()
-        file("gradle.properties").withInputStream { props.load(it) }
-        println "gradle.properties value: ${props['jacoco.gosu.filter.enabled']}"
-
-        // Test the actual logic used
-        def gosuFilterEnabled = project.hasProperty('jacoco.gosu.filter.enabled') ? project.property('jacoco.gosu.filter.enabled') : 'true'
-        println "Final gosuFilterEnabled value: ${gosuFilterEnabled}"
-        println "gosuFilterEnabled == 'true': ${gosuFilterEnabled == 'true'}"
-        println "====================================="
-    }
-}
-
-task compareCoverage {
-    description = 'Shows branch coverage summary'
-    dependsOn jacocoTestReport
-
-    doLast {
-        def csvFile = file("${buildDir}/reports/jacoco/test/jacocoTestReport.csv")
-        if (csvFile.exists()) {
-            println ""
-            println "=" * 80
-            println "BRANCH COVERAGE SUMMARY"
-            println "=" * 80
-
-            csvFile.eachLine { line ->
-                if (line.contains('PolicyPeriodEnhancement') && !line.startsWith('GROUP')) {
-                    def parts = line.split(',')
-                    if (parts.length >= 12) {
-                        def method = parts[3]
-                        def branchMissed = parts[9]
-                        def branchCovered = parts[10]
-                        def branchTotal = (branchMissed as int) + (branchCovered as int)
-
-                        if (branchTotal > 0) {
-                            def coverage = ((branchCovered as int) / branchTotal * 100) as int
-                            printf("%-50s | %2d branches | %3d%% covered\n",
-                                    method.take(50), branchTotal, coverage)
-                        }
-                    }
-                }
-            }
-            println "=" * 80
-            println ""
-        }
-    }
 }

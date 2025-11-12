@@ -1,0 +1,201 @@
+/**
+ * JaCoCo Gosu Filter Integration Script
+ *
+ * This script handles the two-step integration of the Gosu filter agent:
+ * 1. Build the agent JAR (if needed)
+ * 2. Load it into the Gradle daemon JVM for report generation
+ */
+
+// Check if agent needs to be built
+def checkAgentAvailability() {
+    def agentJar = rootProject.gosuFilterAgentLatest
+    def versionedJar = rootProject.gosuFilterAgentVersioned
+
+    if (!agentJar.exists() && !versionedJar.exists()) {
+        return [
+            available: false,
+            needsBuild: true,
+            message: """
+================================================================================
+⚠️  GOSU FILTER AGENT NOT FOUND
+================================================================================
+The JaCoCo Gosu filter requires a pre-built agent JAR.
+
+BUILDING AGENT NOW...
+This is a one-time setup step.
+================================================================================
+"""
+        ]
+    }
+
+    // Check if version matches
+    if (versionedJar.exists()) {
+        return [
+            available: true,
+            needsBuild: false,
+            path: versionedJar,
+            message: "✓ Using Gosu filter agent v${rootProject.gosuFilterVersion}"
+        ]
+    } else if (agentJar.exists()) {
+        return [
+            available: true,
+            needsBuild: false,
+            path: agentJar,
+            message: "✓ Using Gosu filter agent (latest)"
+        ]
+    }
+}
+
+// Check if agent is loaded in current JVM (Gradle daemon)
+def isAgentLoadedInDaemon() {
+    try {
+        // Try to load the agent class - if it's already loaded as an agent, this will work
+        def agentClass = Class.forName('org.jacoco.gosu.GosuFilterAgent', false, ClassLoader.getSystemClassLoader())
+
+        // Check if the agent's static field is set (indicating premain was called)
+        def field = agentClass.getDeclaredField('GOSU_FILTER_INSTANCE')
+        field.setAccessible(true)
+        def instance = field.get(null)
+
+        return instance != null || agentClass != null
+    } catch (ClassNotFoundException e) {
+        return false
+    } catch (Exception e) {
+        return false
+    }
+}
+
+// Configure jacocoTestReport with agent verification
+allprojects {
+    afterEvaluate { project ->
+        tasks.withType(org.gradle.testing.jacoco.tasks.JacocoReport).configureEach { reportTask ->
+            // Only apply to main project's jacocoTestReport
+            if (project == rootProject && reportTask.name == 'jacocoTestReport') {
+                def gosuFilterEnabled = project.hasProperty('jacoco.gosu.filter.enabled') ?
+                    project.property('jacoco.gosu.filter.enabled') : 'true'
+
+                if (gosuFilterEnabled != 'true') {
+                    return // Skip if filter is disabled
+                }
+
+                reportTask.doFirst {
+                    def agentStatus = checkAgentAvailability()
+
+                    if (!agentStatus.available) {
+                        // Agent not built - build it now
+                        println agentStatus.message
+                        project.exec {
+                            commandLine './gradlew', ':jacoco-gosu-filter:build', '--quiet'
+                        }
+
+                        // Recheck after build
+                        agentStatus = checkAgentAvailability()
+                        if (!agentStatus.available) {
+                            throw new GradleException("Failed to build Gosu filter agent")
+                        }
+                    }
+
+                    println ""
+                    println "=" * 80
+                    println "JaCoCo Gosu Filter Integration Status"
+                    println "=" * 80
+                    println agentStatus.message
+
+                    // Check if agent is loaded in Gradle daemon
+                    def agentLoaded = isAgentLoadedInDaemon()
+
+                    if (agentLoaded) {
+                        println "✓ Agent is loaded in Gradle daemon JVM"
+                        println "✓ Filter will be applied during report generation"
+                    } else {
+                        println "⚠️  Agent is NOT loaded in Gradle daemon JVM"
+                        println ""
+                        println "AGENT MUST BE LOADED INTO GRADLE DAEMON"
+                        println ""
+                        println "To activate the Gosu filter, you must restart Gradle with the agent:"
+                        println ""
+                        println "METHOD 1: Modify gradle.properties (RECOMMENDED)"
+                        println "  Add to gradle.properties:"
+                        println "    org.gradle.jvmargs=-Xmx4g -javaagent:${agentStatus.path?.absolutePath ?: 'agents/gosu-filter-agent.jar'}"
+                        println ""
+                        println "  Then restart Gradle:"
+                        println "    ./gradlew --stop"
+                        println "    ./gradlew jacocoTestReport"
+                        println ""
+                        println "METHOD 2: Use environment variable"
+                        println "  export GRADLE_OPTS=\"-javaagent:${agentStatus.path?.absolutePath ?: 'agents/gosu-filter-agent.jar'}\""
+                        println "  ./gradlew --stop"
+                        println "  ./gradlew jacocoTestReport"
+                        println ""
+                        println "METHOD 3: Use fallback forked process (see below)"
+                        println "  ./gradlew jacocoTestReportForked"
+                        println ""
+                        println "WITHOUT THE AGENT:"
+                        println "  - Report generation will proceed"
+                        println "  - But Gosu null-safety branches will NOT be filtered"
+                        println "  - Coverage will include compiler-generated null checks"
+                        println ""
+                        println "Press Ctrl+C to cancel, or wait 10 seconds to continue without filter..."
+                        println "=" * 80
+
+                        // Give user time to cancel
+                        try {
+                            Thread.sleep(10000)
+                            println "Continuing without Gosu filter..."
+                        } catch (InterruptedException e) {
+                            throw new GradleException("Cancelled by user")
+                        }
+                    }
+                    println "=" * 80
+                    println ""
+                }
+            }
+        }
+    }
+}
+
+// Create a forked version of jacocoTestReport that loads the agent
+tasks.register('jacocoTestReportForked', JavaExec) {
+    description = 'Generate JaCoCo report in a forked JVM with Gosu filter agent loaded'
+    group = 'verification'
+
+    dependsOn test
+    dependsOn ':jacoco-gosu-filter:copyAgentJar'
+
+    doFirst {
+        def agentStatus = checkAgentAvailability()
+        if (!agentStatus.available) {
+            throw new GradleException("Agent not available. Run: ./gradlew :jacoco-gosu-filter:build")
+        }
+
+        def agentPath = agentStatus.path ?: rootProject.gosuFilterAgentLatest
+
+        println ""
+        println "=" * 80
+        println "FALLBACK: Running JaCoCo report generation in forked JVM"
+        println "=" * 80
+        println "Agent: ${agentPath}"
+        println "This will load the Gosu filter agent in a separate JVM process"
+        println "=" * 80
+        println ""
+
+        // Configure the JavaExec task
+        classpath = project.buildscript.configurations.classpath +
+                    project.configurations.jacocoAnt +
+                    project.sourceSets.main.runtimeClasspath
+
+        mainClass = 'org.gradle.testing.jacoco.tasks.JacocoReport'
+
+        jvmArgs = [
+            "-javaagent:${agentPath.absolutePath}",
+            "-XX:+EnableDynamicAgentLoading"
+        ]
+
+        args = [
+            "--exec-file=${project.buildDir}/jacoco/test.exec",
+            "--class-files=${project.buildDir}/classes/java/main",
+            "--source-files=${project.file('src/main/java')}",
+            "--report-dir=${project.buildDir}/reports/jacoco/test"
+        ]
+    }
+}

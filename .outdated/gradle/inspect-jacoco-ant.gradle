@@ -1,0 +1,28 @@
+// Inspect how Gradle JaCoCo plugin configures Ant
+afterEvaluate {
+    tasks.withType(org.gradle.testing.jacoco.tasks.JacocoReport) { task ->
+        task.doFirst {
+            println "=" * 80
+            println "JaCoCo Report Task Configuration"
+            println "=" * 80
+            println "Task: ${task.name}"
+            println "Ant: ${task.ant.getClass()}"
+            
+            // Check if we can access Ant's configuration
+            try {
+                def antProperties = task.ant.properties
+                println "Ant Properties:"
+                antProperties.each { k, v ->
+                    if (k.toString().toLowerCase().contains('java') || 
+                        k.toString().toLowerCase().contains('jvm')) {
+                        println "  ${k} = ${v}"
+                    }
+                }
+            } catch (Exception e) {
+                println "Cannot access Ant properties: ${e.message}"
+            }
+            
+            println "=" * 80
+        }
+    }
+}

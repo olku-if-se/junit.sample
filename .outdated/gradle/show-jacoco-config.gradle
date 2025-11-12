@@ -1,0 +1,17 @@
+println "JaCoCo Extension Configuration:"
+println "  toolVersion: ${jacoco.toolVersion}"
+println "  reportsDirectory: ${jacoco.reportsDirectory.get()}"
+
+// Check if we can configure JVM args for Ant
+tasks.withType(org.gradle.testing.jacoco.tasks.JacocoReport) { task ->
+    println "\nJacocoReport task: ${task.name}"
+    println "  Class: ${task.getClass().name}"
+    
+    // Try to find jvmArgs or similar properties
+    task.metaClass.methods.each { method ->
+        if (method.name.toLowerCase().contains('jvm') || 
+            method.name.toLowerCase().contains('arg')) {
+            println "  Method: ${method.name}"
+        }
+    }
+}

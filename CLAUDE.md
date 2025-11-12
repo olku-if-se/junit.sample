@@ -38,9 +38,6 @@ This project uses Gradle with custom plugins and configurations:
 
 # View JaCoCo HTML report (opens browser)
 ./gradlew viewReport
-
-# Compare branch coverage summary
-./gradlew compareCoverage
 ```
 
 ### Test Execution Commands
@@ -54,26 +51,8 @@ This project uses Gradle with custom plugins and configurations:
 
 # Run tests without reports (faster)
 ./gradlew test --rerun -PNoReports
-
-# Run Gosu filter tests with comprehensive verification
-./run-gosu-filter-tests.sh
-
-# Run complete JaCoCo filter testing
-./test-jacoco-filter.sh
 ```
 
-### Development Workflow Commands
-
-```bash
-# Clean and rebuild
-./gradlew clean build
-
-# Check task dependencies
-./gradlew build taskTree
-
-# Capture build task graph (useful for understanding Gosu compilation)
-./gradlew build taskTree
-```
 
 ## Architecture
 
@@ -83,17 +62,16 @@ This project uses Gradle with custom plugins and configurations:
 junit.sample/
 ├── src/
 │   ├── main/
-│   │   ├── java/           # Java source code
-│   │   └── gosu/           # Gosu source code (.gs, .gsx, .gst, .gsp)
+│   │   ├── java/                         # Java source code
+│   │   └── gosu/                         # Gosu source code (.gs, .gsx, .gst, .gsp)
 │   └── test/
-│       ├── java/           # Java test code
-│       └── gosu/           # Gosu test code
-├── jacoco-gosu-filter/     # Custom JaCoCo filter module
+│       ├── java/                         # Java test code
+│       └── gosu/                         # Gosu test code
+├── jacoco-gosu-filter/                   # Custom JaCoCo filter module
 │   └── src/main/java/org/jacoco/gosu/
-│       ├── GosuFilterAgent.java        # Java agent for runtime injection
-│       ├── GosuFilterInjector.java     # Injects filter into JaCoCo
-│       └── GosuNullSafetyFilter.java   # Filter implementation
-└── scripts/                # Verification and testing scripts
+│       ├── GosuFilterAgent.java          # Java agent for runtime injection
+│       ├── GosuFilterInjector.java       # Injects filter into JaCoCo
+│       └── GosuNullSafetyFilter.java     # Filter implementation
 ```
 
 ### Key Components
@@ -152,28 +130,10 @@ The custom filter solves Gosu's null-safe navigation (`?.`) which generates unne
 - **Dynamic Agent Loading**: Enabled for Java 9+ compatibility
 
 ### Test Configuration
-```groovy
-test {
-    // Load Gosu filter agent FIRST
-    jvmArgs "-javaagent:${filterAgentPath}"
 
-    // Enable dynamic agent loading for Java 9+
-    jvmArgs "-XX:+EnableDynamicAgentLoading"
-
-    useJUnitPlatform()
-    testLogging {
-        events("failed")
-        showStandardStreams = true
-    }
-}
-```
+- **JUnit 5 Platform**: Configured with vintage engine for JUnit 4 tests
 
 ## Special Considerations
-
-### Agent Loading Order
-**Critical**: The Gosu filter agent MUST be loaded before the JaCoCo agent. The build.gradle enforces this through:
-1. `dependsOn ':jacoco-gosu-filter:copyAgentJar'` dependency
-2. Explicit jvmArgs configuration in test task
 
 ### Known Issues and Solutions
 
@@ -187,17 +147,6 @@ test {
 - Parallel test execution configured by default
 
 ## Verification and Debugging
-
-### Filter Operation Verification
-```bash
-# Check if filter logs appear in test output
-./gradlew test 2>&1 | grep "\[Gosu"
-
-# Expected log patterns:
-# [GosuFilterAgent] STARTING GOSU FILTER AGENT
-# [GosuFilterInjector] FILTER INJECTION SUCCESSFUL
-# [GosuNullSafetyFilter] PATTERN 1 DETECTED
-```
 
 ### Coverage Analysis
 - **HTML Report**: `build/reports/jacoco/test/html/index.html`
@@ -243,14 +192,8 @@ javap -v build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class | gre
 1. **Always run tests via command line** to ensure proper agent loading
 2. **Use `./gradlew test --continuous`** for rapid development cycles
 3. **Check filter logs** when verifying coverage accuracy
-4. **Run `./test-jacoco-filter.sh`** for comprehensive validation
-5. **Review `docs/` directory** for detailed implementation guides and verification procedures
+4. **Review `docs/` directory** for detailed implementation guides and verification procedures
 
 ## Project Documentation
 
-The `docs/` directory contains comprehensive documentation:
-- `docs/README.md` - Complete documentation index and usage guide
-- `docs/WORK_COMPLETED.md` - Executive summary of enhancements
-- `docs/COMPREHENSIVE_SUMMARY.md` - Complete implementation details
-- `docs/BYTECODE_VERIFICATION_GUIDE.md` - Technical bytecode analysis reference
-- `docs/TEST_EXECUTION_REPORT.md` - Live test execution results and verification
+- TBD
