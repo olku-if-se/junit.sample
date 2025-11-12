@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 apply from: "$rootDir/gradle/test-custom-terminal-reporter.gradle"
@@ -8,6 +9,10 @@ repositories {
     maven { url project.file(localRepoPath) }
     mavenCentral()
 }
+
+// Version management for agent JAR
+version = '1.0.0'
+group = 'org.jacoco.gosu'
 
 // Force Java 11 compatibility (required for Byte Buddy compatibility)
 java {
@@ -49,13 +54,20 @@ dependencies {
 }
 
 jar {
+    // Use version in JAR name
+    archiveBaseName = 'gosu-filter-agent'
+    archiveVersion = version
+
     manifest {
         attributes(
                 'Premain-Class': 'org.jacoco.gosu.GosuFilterAgent',
                 'Agent-Class': 'org.jacoco.gosu.GosuFilterAgent',
                 'Can-Redefine-Classes': 'true',
                 'Can-Retransform-Classes': 'true',
-                'Boot-Class-Path': jar.archiveFileName.get()
+                'Boot-Class-Path': jar.archiveFileName.get(),
+                'Implementation-Version': version,
+                'Implementation-Title': 'JaCoCo Gosu Null-Safety Filter Agent',
+                'Implementation-Vendor': 'JaCoCo Gosu Filter Project'
         )
     }
 
@@ -70,9 +82,6 @@ jar {
 // Configure testing
 test {
     useJUnitPlatform()
-
-    // Make sure the main project is compiled first
-    dependsOn ':compileGosu'
 
     // Add system properties for debugging and Byte Buddy
     systemProperty "jacoco.gosu.filter.debug", "true"
@@ -101,12 +110,12 @@ test {
     }
 
     // Show test output
-//    testLogging {
+    testLogging {
 //        events "passed", "skipped", "failed"
-//        showExceptions true
-//        showCauses true
-//        showStackTraces true
-//    }
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
 
     // Set working directory to root project (to access build/classes)
     workingDir rootProject.projectDir
@@ -144,12 +153,77 @@ tasks.register('runtimeAgentTest', Test) {
     }
 }
 
-// Task to copy agent JAR to a known location
+// Task to copy agent JAR to a known location with version
 tasks.register('copyAgentJar', Copy) {
     dependsOn tasks.named('jar')
     from(tasks.named('jar').flatMap { it.archiveFile })
     into "${rootProject.projectDir}/agents"
-    rename { 'gosu-filter-agent.jar' }
+
+    // Copy both versioned and unversioned (latest symlink)
+    doLast {
+        def versionedJar = file("${rootProject.projectDir}/agents/gosu-filter-agent-${version}.jar")
+        def latestJar = file("${rootProject.projectDir}/agents/gosu-filter-agent.jar")
+
+        // Copy to versioned name
+        ant.copy(
+                file: tasks.named('jar').get().archiveFile.get().asFile,
+                tofile: versionedJar
+        )
+
+        // Create/update "latest" symlink or copy
+        if (latestJar.exists()) {
+            latestJar.delete()
+        }
+        ant.copy(file: versionedJar, tofile: latestJar)
+
+        println "✓ Agent JAR copied:"
+        println "  Versioned: ${versionedJar.name}"
+        println "  Latest:    ${latestJar.name}"
+    }
 }
 
-build.finalizedBy 'copyAgentJar'
+// Shadow JAR configuration for filter override
+shadowJar {
+    archiveBaseName = 'gosu-filter-override'
+    archiveVersion = version
+    archiveClassifier = ''
+
+    // Include our custom Filters class
+    from sourceSets.main.output
+
+    // Include GosuNullSafetyFilter
+    include 'org/jacoco/core/internal/analysis/filter/Filters.class'
+    include 'org/jacoco/gosu/GosuNullSafetyFilter*.class'
+
+    // Don't include agent classes (not needed for report generation)
+    exclude 'org/jacoco/gosu/GosuFilterAgent.class'
+    exclude 'org/jacoco/gosu/GosuFilterInjector*.class'
+
+    // Minimize JAR size
+    minimize()
+
+    manifest {
+        attributes(
+                'Implementation-Version': version,
+                'Implementation-Title': 'JaCoCo Gosu Filter Override',
+                'Implementation-Vendor': 'JaCoCo Gosu Filter Project'
+        )
+    }
+
+    doLast {
+        println "✓ Shadow JAR created: ${archiveFile.get().asFile.name}"
+    }
+}
+
+// Copy shadow JAR to agents directory
+tasks.register('copyShadowJar', Copy) {
+    dependsOn shadowJar
+    from(shadowJar.archiveFile)
+    into "${rootProject.projectDir}/agents"
+
+    doLast {
+        println "✓ Filter override JAR copied to agents/"
+    }
+}
+
+build.finalizedBy 'copyAgentJar', 'copyShadowJar'

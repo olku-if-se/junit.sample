@@ -1,9 +1,13 @@
 package org.jacoco.gosu;
 
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import org.objectweb.asm.*;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,9 +40,9 @@ public class GosuFilterInjectorSimpleTest {
         Object filter = GosuFilterInjector.createFilter();
 
         assertNotNull(filter, "Filter should be created");
-        assertEquals("org.jacoco.gosu.GosuNullSafetyFilter",
-                    filter.getClass().getName(),
-                    "Should create GosuNullSafetyFilter instance");
+        assertEquals("org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter",
+                filter.getClass().getName(),
+                "Should create GosuNullSafetyFilter instance");
 
         System.out.println("✓ createFilter() successfully created GosuNullSafetyFilter instance");
         System.out.println("  Filter type: " + filter.getClass().getSimpleName());
@@ -48,10 +52,10 @@ public class GosuFilterInjectorSimpleTest {
     @DisplayName("Transform should ignore non-Filters classes")
     void testTransformIgnoresNonFiltersClasses() {
         byte[] result = injector.transform(getClass().getClassLoader(),
-                                         "some/other/Class",
-                                         null,
-                                         null,
-                                         new byte[0]);
+                "some/other/Class",
+                null,
+                null,
+                new byte[0]);
 
         assertNull(result, "Should return null for non-Filters classes");
         System.out.println("✓ Non-Filters classes are ignored by transform()");
@@ -61,10 +65,10 @@ public class GosuFilterInjectorSimpleTest {
     @DisplayName("Transform should handle null className gracefully")
     void testTransformHandlesNullClassName() {
         byte[] result = injector.transform(getClass().getClassLoader(),
-                                         null,
-                                         null,
-                                         null,
-                                         new byte[0]);
+                null,
+                null,
+                null,
+                new byte[0]);
 
         assertNull(result, "Should handle null className gracefully");
         System.out.println("✓ Null className handled gracefully");
@@ -76,10 +80,10 @@ public class GosuFilterInjectorSimpleTest {
         byte[] invalidBytecode = new byte[]{0x00, 0x01, 0x02}; // Invalid bytecode
 
         byte[] result = injector.transform(getClass().getClassLoader(),
-                                         "org/jacoco/core/internal/analysis/filter/Filters",
-                                         null,
-                                         null,
-                                         invalidBytecode);
+                "org/jacoco/core/internal/analysis/filter/Filters",
+                null,
+                null,
+                invalidBytecode);
 
         assertEquals(invalidBytecode, result, "Should return original bytecode on failure");
         System.out.println("✓ Original bytecode returned on transformation failure");
@@ -93,19 +97,19 @@ public class GosuFilterInjectorSimpleTest {
         System.out.println("Testing transformation with mock bytecode: " + mockBytecode.length + " bytes");
 
         byte[] result = injector.transform(getClass().getClassLoader(),
-                                         "org/jacoco/core/internal/analysis/filter/Filters",
-                                         null,
-                                         null,
-                                         mockBytecode);
+                "org/jacoco/core/internal/analysis/filter/Filters",
+                null,
+                null,
+                mockBytecode);
 
         assertNotNull(result, "Should return modified bytecode for Filters class");
         assertNotEquals(mockBytecode, result, "Bytecode should be modified");
 
         // Check if filter instance was created
         assertNotNull(GosuFilterAgent.GOSU_FILTER_INSTANCE,
-                      "Filter instance should be created during transformation");
+                "Filter instance should be created during transformation");
         assertTrue(GosuFilterAgent.GOSU_FILTER_INSTANCE instanceof GosuNullSafetyFilter,
-                  "Filter instance should be GosuNullSafetyFilter");
+                "Filter instance should be GosuNullSafetyFilter");
 
         System.out.println("✓ Filters class is intercepted and transformed");
         System.out.println("  Original size: " + mockBytecode.length + " bytes");
@@ -117,20 +121,20 @@ public class GosuFilterInjectorSimpleTest {
     @DisplayName("Should verify filter instance creation and storage")
     void testFilterInstanceCreation() throws Exception {
         assertNull(GosuFilterAgent.GOSU_FILTER_INSTANCE,
-                  "Filter instance should be null initially");
+                "Filter instance should be null initially");
 
         // Create mock bytecode and transform
         byte[] mockBytecode = createMockFiltersBytecode();
         injector.transform(getClass().getClassLoader(),
-                         "org/jacoco/core/internal/analysis/filter/Filters",
-                         null,
-                         null,
-                         mockBytecode);
+                "org/jacoco/core/internal/analysis/filter/Filters",
+                null,
+                null,
+                mockBytecode);
 
         assertNotNull(GosuFilterAgent.GOSU_FILTER_INSTANCE,
-                      "Filter instance should be created during transformation");
+                "Filter instance should be created during transformation");
         assertTrue(GosuFilterAgent.GOSU_FILTER_INSTANCE instanceof GosuNullSafetyFilter,
-                  "Filter instance should be GosuNullSafetyFilter");
+                "Filter instance should be GosuNullSafetyFilter");
 
         System.out.println("✓ Filter instance creation and storage verified");
         System.out.println("  Instance type: " + GosuFilterAgent.GOSU_FILTER_INSTANCE.getClass().getName());
@@ -162,9 +166,9 @@ public class GosuFilterInjectorSimpleTest {
 
         // Add allNonKotlinFilters() method - THIS IS THE TARGET METHOD
         mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-                           "allNonKotlinFilters",
-                           "()Lorg/jacoco/core/internal/analysis/filter/IFilter;",
-                           null, null);
+                "allNonKotlinFilters",
+                "()Lorg/jacoco/core/internal/analysis/filter/IFilter;",
+                null, null);
         mv.visitCode();
 
         // Original bytecode pattern that should be modified:
@@ -190,12 +194,12 @@ public class GosuFilterInjectorSimpleTest {
         mv.visitTypeInsn(Opcodes.NEW, "org/jacoco/core/internal/analysis/filter/SyntheticFilter");
         mv.visitInsn(Opcodes.DUP);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                          "org/jacoco/core/internal/analysis/filter/SyntheticFilter",
-                          "<init>", "()V", false);
+                "org/jacoco/core/internal/analysis/filter/SyntheticFilter",
+                "<init>", "()V", false);
         mv.visitInsn(Opcodes.AASTORE);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                          "org/jacoco/core/internal/analysis/filter/FilterSet",
-                          "<init>", "([Lorg/jacoco/core/internal/analysis/filter/IFilter;)V", false);
+                "org/jacoco/core/internal/analysis/filter/FilterSet",
+                "<init>", "([Lorg/jacoco/core/internal/analysis/filter/IFilter;)V", false);
         mv.visitInsn(Opcodes.ARETURN);
 
         mv.visitMaxs(3, 0);

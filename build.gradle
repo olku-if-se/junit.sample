@@ -23,15 +23,34 @@ version = '1.0-SNAPSHOT'
 description = 'Gosu Junit Gradle Project Example'
 
 // force Java 11 for project code (stay close to Guidewire environment)
+ext {
+    JdkVersion = 11
+}
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(JdkVersion)
         //vendor.set(JvmVendorSpec.AMAZON)
     }
-    targetCompatibility = 11
-    sourceCompatibility = 11
+    targetCompatibility = JdkVersion
+    sourceCompatibility = JdkVersion
 }
-compileJava.options.release = 11
+compileJava.options.release = JdkVersion
+
+// Force Specific JaCoCo Version with Gosu Support
+jacoco {
+    // our custom JaCoCo build with Gosu support
+    toolVersion = "0.8.14-SNAPSHOT+gosu.1"
+}
+
+dependencies {
+    // force resolution of the custom version over the local offline repository
+    jacocoAnt "org.jacoco:org.jacoco.ant:${jacoco.toolVersion}"
+    jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}"
+
+    jacocoAnt 'org.ow2.asm:asm:9.9'
+    jacocoAnt 'org.ow2.asm:asm-tree:9.9'
+    jacocoAnt 'org.ow2.asm:asm-commons:9.9'
+}
 
 // Include Gosu source sets Into Compilation Process
 sourceSets {
@@ -88,27 +107,6 @@ dependencies {
 }
 
 test {
-    dependsOn ':jacoco-gosu-filter:copyAgentJar' // Ensure the agent JAR is copied before tests
-
-    def filterAgentPath = file("${rootProject.projectDir}/agents/gosu-filter-agent.jar").absolutePath
-
-    doFirst {
-        // Enable dynamic agent loading for Java 9+
-        jvmArgs "-XX:+EnableDynamicAgentLoading"
-
-        // Load Gosu filter agent FIRST so it can intercept JaCoCo classes
-        jvmArgs "-javaagent:${filterAgentPath}"
-
-        // JaCoCo agent will be loaded automatically by the JaCoCo Gradle plugin
-        // The agent JAR is resolved from the JaCoCo classpath during test execution
-        println "Loading Gosu filter agent: ${filterAgentPath}"
-        println "JaCoCo agent will be loaded by Gradle JaCoCo plugin"
-        println "Dynamic agent loading enabled"
-
-        println "JVM Args for test:"
-        jvmArgs.each { println "  ${it}" }
-    }
-
     useJUnitPlatform()
 
     jacoco {
@@ -122,10 +120,6 @@ test {
     }
 
     finalizedBy(jacocoTestReport)
-}
-
-jacocoTestReport {
-    dependsOn test // Ensure tests are run before generating the report
 }
 
 // Gosu Configuration
@@ -170,8 +164,9 @@ jacocoTestReport {
         println ""
     }
 }
+
 task viewReport {
-    dependsOn jacocoTestReport
+    //dependsOn jacocoTestReport
     doLast {
         def reportFile = file("${buildDir}/reports/jacoco/test/html/index.html")
         if (reportFile.exists()) {
@@ -182,14 +177,84 @@ task viewReport {
 
             // Try to open browser (platform-specific)
             def os = System.getProperty('os.name').toLowerCase()
-            if (os.contains('windows')) {
-                exec { commandLine 'cmd', '/c', "start ${reportFile.absolutePath}" }
+            if (os.contains('windows') || isWSL2()) {
+                def windowsPath = reportFile.absolutePath
+                if (isWSL2()) {
+                    // Convert WSL path to Windows-compatible path
+                    windowsPath = convertWSLPathToWindows(reportFile.absolutePath)
+                }
+                // Use full Windows path to cmd.exe when in WSL2
+                def cmdPath = isWSL2() ? '/mnt/c/Windows/System32/cmd.exe' : 'cmd'
+                exec { commandLine cmdPath, '/c', "start file://${windowsPath}" }
             } else if (os.contains('mac')) {
                 exec { commandLine 'open', reportFile.absolutePath }
             } else {
                 exec { commandLine 'xdg-open', reportFile.absolutePath }
             }
         }
+    }
+}
+
+def isWSL2() {
+    try {
+        def versionFile = new File('/proc/version')
+        if (versionFile.exists()) {
+            def content = versionFile.text.toLowerCase()
+            return content.contains('wsl') || content.contains('microsoft')
+        }
+    } catch (Exception e) {
+        // Ignore exceptions
+    }
+    return false
+}
+
+def convertWSLPathToWindows(linuxPath) {
+    try {
+        // Try using wslpath command for proper Windows path resolution
+        def process = ['wslpath', '-w', linuxPath].execute()
+        def output = process.text.trim()
+        if (process.waitFor() == 0 && !output.empty) {
+            return output
+        }
+    } catch (Exception e) {
+        // wslpath not available or failed, fall back to UNC format
+    }
+
+    // Fallback: Use WSL2 UNC path format for Windows browser access
+    // Remove leading slash and convert forward slashes to backslashes
+    def wslPath = linuxPath.substring(1).replace('/', '\\')
+    return "\\\\wsl.localhost\\Ubuntu\\${wslPath}"
+}
+
+task debugGosuFilterProperty {
+    description = 'Debug Gosu filter property resolution'
+    doLast {
+        println "=== Debugging Gosu Filter Property ==="
+        println "project.hasProperty('jacoco.gosu.filter.enabled'): ${project.hasProperty('jacoco.gosu.filter.enabled')}"
+
+        if (project.hasProperty('jacoco.gosu.filter.enabled')) {
+            println "project.property('jacoco.gosu.filter.enabled'): ${project.property('jacoco.gosu.filter.enabled')}"
+            println "property class: ${project.property('jacoco.gosu.filter.enabled').getClass()}"
+        }
+
+        // Try alternative ways to access the property
+        println "Properties with 'jacoco' prefix:"
+        project.properties.each { key, value ->
+            if (key.toString().contains('jacoco')) {
+                println "  ${key}: ${value} (${value?.getClass()})"
+            }
+        }
+
+        // Check gradle.properties access
+        def props = new Properties()
+        file("gradle.properties").withInputStream { props.load(it) }
+        println "gradle.properties value: ${props['jacoco.gosu.filter.enabled']}"
+
+        // Test the actual logic used
+        def gosuFilterEnabled = project.hasProperty('jacoco.gosu.filter.enabled') ? project.property('jacoco.gosu.filter.enabled') : 'true'
+        println "Final gosuFilterEnabled value: ${gosuFilterEnabled}"
+        println "gosuFilterEnabled == 'true': ${gosuFilterEnabled == 'true'}"
+        println "====================================="
     }
 }
 

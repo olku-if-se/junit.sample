@@ -1,9 +1,11 @@
 package org.jacoco.gosu;
 
 import net.bytebuddy.agent.ByteBuddyAgent;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -32,7 +34,7 @@ public class BasicByteBuddyTest {
 
         assertNotNull(instrumentation, "ByteBuddy should provide instrumentation");
         assertTrue(instrumentation.getAllLoadedClasses().length > 0,
-                  "Should have loaded classes available");
+                "Should have loaded classes available");
 
         System.out.println("✓ ByteBuddy instrumentation installed successfully");
         System.out.println("  Loaded classes count: " + instrumentation.getAllLoadedClasses().length);
@@ -46,7 +48,7 @@ public class BasicByteBuddyTest {
 
         assertNotNull(filter, "createFilter should return non-null instance");
         assertTrue(filter instanceof GosuNullSafetyFilter,
-                  "createFilter should return GosuNullSafetyFilter");
+                "createFilter should return GosuNullSafetyFilter");
 
         System.out.println("✓ createFilter method works correctly");
         System.out.println("  Filter type: " + filter.getClass().getSimpleName());
@@ -67,7 +69,7 @@ public class BasicByteBuddyTest {
 
         // Test that transformer implements correct interface
         assertTrue(injector instanceof java.lang.instrument.ClassFileTransformer,
-                  "Injector should implement ClassFileTransformer");
+                "Injector should implement ClassFileTransformer");
 
         System.out.println("✓ Agent functionality with instrumentation verified");
         System.out.println("  Instrumentation capabilities:");
@@ -90,7 +92,7 @@ public class BasicByteBuddyTest {
 
         // Test removal
         assertTrue(instrumentation.removeTransformer(injector),
-                  "Should be able to remove transformer");
+                "Should be able to remove transformer");
 
         System.out.println("✓ Transformer registration works correctly");
     }
@@ -100,13 +102,13 @@ public class BasicByteBuddyTest {
     void testAgentMethods() throws Exception {
         // Test that required methods exist
         assertNotNull(GosuFilterAgent.class.getMethod("premain", String.class, java.lang.instrument.Instrumentation.class),
-                      "Agent should have premain method");
+                "Agent should have premain method");
 
         assertNotNull(GosuFilterAgent.class.getMethod("agentmain", String.class, java.lang.instrument.Instrumentation.class),
-                      "Agent should have agentmain method");
+                "Agent should have agentmain method");
 
         assertNotNull(GosuFilterAgent.class.getField("GOSU_FILTER_INSTANCE"),
-                      "Agent should have GOSU_FILTER_INSTANCE field");
+                "Agent should have GOSU_FILTER_INSTANCE field");
 
         System.out.println("✓ Agent methods and properties verified");
     }
@@ -118,11 +120,11 @@ public class BasicByteBuddyTest {
 
         // Test that injector implements ClassFileTransformer
         assertTrue(injector instanceof java.lang.instrument.ClassFileTransformer,
-                  "Injector should implement ClassFileTransformer");
+                "Injector should implement ClassFileTransformer");
 
         // Test that required method exists
         assertNotNull(injector.getClass().getMethod("createFilter"),
-                      "Injector should have createFilter method");
+                "Injector should have createFilter method");
 
         System.out.println("✓ Injector properties verified");
     }
@@ -140,7 +142,7 @@ public class BasicByteBuddyTest {
         Object filter = GosuFilterInjector.createFilter();
         assertNotNull(filter, "Filter should be created via createFilter");
         assertTrue(filter instanceof GosuNullSafetyFilter,
-                  "createFilter should return correct type");
+                "createFilter should return correct type");
 
         // Verify that the agent is properly initialized (logs show it started)
         // The static field may be null until first transformation

@@ -1,5 +1,6 @@
 package org.jacoco.gosu;
 
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.objectweb.asm.*;
 
 import java.lang.instrument.ClassFileTransformer;
@@ -31,7 +32,7 @@ public class GosuFilterInjector implements ClassFileTransformer {
         try {
             // Load and instantiate the filter using this class's classloader (the agent classloader)
             Class<?> filterClass = GosuFilterInjector.class.getClassLoader()
-                    .loadClass("org.jacoco.gosu.GosuNullSafetyFilter");
+                    .loadClass("org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter");
             return filterClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             System.err.println(LOG_PREFIX + " Failed to create GosuNullSafetyFilter: " + e.getMessage());
@@ -47,6 +48,11 @@ public class GosuFilterInjector implements ClassFileTransformer {
             Class<?> classBeingRedefined,
             ProtectionDomain protectionDomain,
             byte[] classfileBuffer) {
+
+        // Debug: Log ALL classes with "jacoco" in the name to understand the loading pattern
+        if (className != null && className.toLowerCase().contains("jacoco")) {
+            System.out.println(LOG_PREFIX + " [JACOCO-CLASS] " + className);
+        }
 
         // Debug: Log JaCoCo filter classes being loaded
         if (className != null && className.startsWith("org/jacoco/core/internal/analysis/filter/")) {
@@ -106,7 +112,7 @@ public class GosuFilterInjector implements ClassFileTransformer {
 
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor,
-                String signature, String[] exceptions) {
+                                         String signature, String[] exceptions) {
             MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 
             // Target the allNonKotlinFilters() method

@@ -65,3 +65,4 @@ agents/
 ### AI Coding ###
 .claude/
 .mcp.json
+.kilocode/

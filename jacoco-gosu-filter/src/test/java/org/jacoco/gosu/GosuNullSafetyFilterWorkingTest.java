@@ -1,11 +1,12 @@
 package org.jacoco.gosu;
 
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.jacoco.core.internal.analysis.filter.IFilterContext;
 import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.analysis.filter.Replacements;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
@@ -14,7 +15,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,7 +41,7 @@ public class GosuNullSafetyFilterWorkingTest {
 
         if (!Files.exists(classPath)) {
             throw new IOException("PolicyPeriodEnhancement.class not found at: " + classPath.toAbsolutePath() +
-                                "\nPlease run: ./gradlew compileGosu first");
+                    "\nPlease run: ./gradlew compileGosu first");
         }
 
         byte[] bytecode = Files.readAllBytes(classPath);
@@ -77,10 +81,10 @@ public class GosuNullSafetyFilterWorkingTest {
     @DisplayName("Expected methods should exist")
     void testExpectedMethodsExist() {
         String[] expectedMethods = {
-            "getFirstPeriodInTermCreateTime_Ext",
-            "getAvailableBrandConceptsForProdCode",
-            "getFirstPeriodProducerCodeName",
-            "isProducerCodeExists"
+                "getFirstPeriodInTermCreateTime_Ext",
+                "getAvailableBrandConceptsForProdCode",
+                "getFirstPeriodProducerCodeName",
+                "isProducerCodeExists"
         };
 
         for (String methodName : expectedMethods) {
@@ -177,7 +181,7 @@ public class GosuNullSafetyFilterWorkingTest {
             System.out.println("\nMethod: " + method.name + method.desc);
             System.out.println("  Instructions: " + method.instructions.size());
             System.out.println("  ALOAD: " + hasAload + ", IFNONNULL: " + hasIfnonnull +
-                              ", ACONST_NULL: " + hasAconstNull + ", CHECKCAST: " + hasCheckcast);
+                    ", ACONST_NULL: " + hasAconstNull + ", CHECKCAST: " + hasCheckcast);
 
             // At least one method should have null-safe patterns
             if (hasIfnonnull && hasAconstNull && hasCheckcast) {
@@ -233,17 +237,28 @@ public class GosuNullSafetyFilterWorkingTest {
 
     private String getOpcodeName(int opcode) {
         switch (opcode) {
-            case Opcodes.ALOAD: return "aload";
-            case Opcodes.IFNONNULL: return "ifnonnull";
-            case Opcodes.ACONST_NULL: return "aconst_null";
-            case Opcodes.CHECKCAST: return "checkcast";
-            case Opcodes.GOTO: return "goto";
-            case Opcodes.INVOKEVIRTUAL: return "invokevirtual";
-            case Opcodes.INVOKEINTERFACE: return "invokeinterface";
-            case Opcodes.INVOKESTATIC: return "invokestatic";
-            case Opcodes.ARETURN: return "areturn";
-            case Opcodes.ASTORE: return "astore";
-            default: return "opcode_" + opcode;
+            case Opcodes.ALOAD:
+                return "aload";
+            case Opcodes.IFNONNULL:
+                return "ifnonnull";
+            case Opcodes.ACONST_NULL:
+                return "aconst_null";
+            case Opcodes.CHECKCAST:
+                return "checkcast";
+            case Opcodes.GOTO:
+                return "goto";
+            case Opcodes.INVOKEVIRTUAL:
+                return "invokevirtual";
+            case Opcodes.INVOKEINTERFACE:
+                return "invokeinterface";
+            case Opcodes.INVOKESTATIC:
+                return "invokestatic";
+            case Opcodes.ARETURN:
+                return "areturn";
+            case Opcodes.ASTORE:
+                return "astore";
+            default:
+                return "opcode_" + opcode;
         }
     }
 

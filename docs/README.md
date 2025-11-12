@@ -171,7 +171,98 @@ This directory contains comprehensive documentation about the JaCoCo Gosu Filter
 
 ---
 
+### JACOCO_GOSU_FILTER_INTEGRATION_PLAN.md {#integration_plan}
+**Complete Integration Plan** - Reference for implementation
+
+- **Time to read**: 30-45 minutes (use as reference manual)
+- **What it covers**:
+  - 6-phase integration plan (Build → Production)
+  - Enhanced technical architecture & timing flow
+  - Agent loading order requirements
+  - JUnit5 integration details
+  - Pattern detection guide (all 5 patterns)
+  - Troubleshooting guide
+  - Success metrics and validation
+
+- **Who should read this**:
+  - Engineers implementing the integration
+  - QA teams verifying integration
+  - DevOps setting up CI/CD
+  - Anyone troubleshooting integration issues
+
+- **Key sections**:
+  - Phase 1: Build Infrastructure Setup
+  - Phase 2: Agent Loading Verification
+  - Phase 3: Pattern Detection Testing
+  - Phase 4: Coverage Report Validation
+  - Phase 5: Bytecode Verification
+  - Phase 6: Production Integration Testing
+
+---
+
+### AGENT_INTEGRATION_VERIFICATION.md {#agent_verification}
+**Integration Failure Analysis** - Critical for reliability
+
+- **Time to read**: 20 minutes
+- **What it covers**:
+  - 8 critical failure points identified
+  - 3 Gradle configuration risks
+  - Verification measures implemented
+  - Test task inventory
+  - Verification procedures
+  - **CRITICAL BUG**: Incorrect jacocoTestReport config
+
+- **Who should read this**:
+  - Build engineers responsible for integration
+  - QA engineers verifying reliability
+  - Anyone troubleshooting integration failures
+  - Technical leads reviewing integration design
+
+- **Key sections**:
+  - Critical Integration Failure Points (8)
+  - Additional Configuration Risks (3)
+  - CRITICAL BUG: JaCoCo Report Agent Loading
+  - Test Task Inventory
+  - Verification Procedures
+  - Success Criteria Checklist
+
+---
+
+### INTEGRATION_FAILURE_POINTS_SUMMARY.md {#failure_summary}
+**Quick Integration Reference** - Essential for operations
+
+- **Time to read**: 5-10 minutes
+- **What it covers**:
+  - Quick reference of 8 failure points
+  - Integration health check script
+  - Failure mode descriptions
+  - Gradle version compatibility
+  - Future risks and mitigations
+
+- **Who should read this**:
+  - On-call engineers
+  - Quick troubleshooting needs
+  - CI/CD pipeline maintainers
+  - Anyone seeing integration failures
+
+- **Key sections**:
+  - 8 Failure Points + 3 Configuration Risks
+  - Where Integration Can Fail
+  - Integration Health Check Script
+  - Gradle Version Compatibility Matrix
+  - Recommended Actions
+
+---
+
 ## Choose Your Path
+
+### "I need to verify the integration is healthy"
+1. Run: `./scripts/integration-health-check.sh`
+2. Review the output for any ❌ failures or ⚠️ warnings
+3. If issues found, read: **[INTEGRATION_FAILURE_POINTS_SUMMARY.md](#failure_summary)**
+4. For deep dive, read: **[AGENT_INTEGRATION_VERIFICATION.md](#agent_verification)**
+
+---
 
 ### "I need to verify the filter is working"
 1. Run: `./gradlew clean jacoco-gosu-filter:build`

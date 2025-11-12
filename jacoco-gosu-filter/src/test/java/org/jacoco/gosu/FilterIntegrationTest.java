@@ -1,8 +1,9 @@
 package org.jacoco.gosu;
 
-import org.junit.jupiter.api.Test;
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -61,7 +62,7 @@ public class FilterIntegrationTest {
         String javaVersion = System.getProperty("java.version");
         System.out.println("Java version: " + javaVersion);
         assertTrue(javaVersion.startsWith("11.") || javaVersion.startsWith("17.") || javaVersion.startsWith("21."),
-                   "Should run on Java 11+");
+                "Should run on Java 11+");
 
         // Check working directory
         String workingDir = System.getProperty("user.dir");
@@ -69,9 +70,9 @@ public class FilterIntegrationTest {
 
         // Check if main project is accessible
         String[] expectedPaths = {
-            "build/classes/gosu/main/enhancement",
-            "../build/classes/gosu/main/enhancement",
-            "../../build/classes/gosu/main/enhancement"
+                "build/classes/gosu/main/enhancement",
+                "../build/classes/gosu/main/enhancement",
+                "../../build/classes/gosu/main/enhancement"
         };
 
         boolean pathFound = false;
@@ -113,9 +114,9 @@ public class FilterIntegrationTest {
 
     private boolean isPolicyPeriodClassAvailable() {
         String[] possiblePaths = {
-            "build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class",
-            "../build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class",
-            "../../build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class"
+                "build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class",
+                "../build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class",
+                "../../build/classes/gosu/main/enhancement/PolicyPeriodEnhancement.class"
         };
 
         for (String path : possiblePaths) {

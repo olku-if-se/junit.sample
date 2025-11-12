@@ -1,13 +1,14 @@
 package org.jacoco.gosu;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
+import org.jacoco.core.internal.analysis.filter.GosuNullSafetyFilter;
 import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.Method;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test to verify that our Gosu filter is actually being applied during test execution.
@@ -90,7 +91,7 @@ public class FilterApplicationVerificationTest {
         }, "Transformer registration should not throw exceptions");
 
         assertTrue(instrumentation.removeTransformer(injector),
-                  "Should be able to remove transformer");
+                "Should be able to remove transformer");
 
         System.out.println("✓ Transformer registration works");
     }

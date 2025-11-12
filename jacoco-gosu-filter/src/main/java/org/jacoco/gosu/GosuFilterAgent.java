@@ -1,11 +1,7 @@
 package org.jacoco.gosu;
 
 
-import java.io.File;
 import java.lang.instrument.Instrumentation;
-import java.net.URL;
-import java.security.CodeSource;
-import java.util.jar.JarFile;
 
 /**
  * Java Agent that registers Gosu filter into JaCoCo at runtime.
@@ -29,6 +25,18 @@ public class GosuFilterAgent {
         System.out.println(LOG_PREFIX + " ========================================");
         System.out.println(LOG_PREFIX + " Agent Args: " + (agentArgs != null ? agentArgs : "(none)"));
         System.out.println(LOG_PREFIX + " JVM has " + inst.getAllLoadedClasses().length + " classes already loaded");
+
+        // Check if any JaCoCo classes are already loaded
+        Class<?>[] loadedClasses = inst.getAllLoadedClasses();
+        int jacocoClassCount = 0;
+        System.out.println(LOG_PREFIX + " Checking for already loaded JaCoCo classes:");
+        for (Class<?> clazz : loadedClasses) {
+            if (clazz.getName() != null && clazz.getName().toLowerCase().contains("jacoco")) {
+                System.out.println(LOG_PREFIX + "   [PRE-LOADED] " + clazz.getName());
+                jacocoClassCount++;
+            }
+        }
+        System.out.println(LOG_PREFIX + " Found " + jacocoClassCount + " JaCoCo classes already loaded");
         System.out.println(LOG_PREFIX + " Gosu filter instance ready: " + (GOSU_FILTER_INSTANCE != null));
 
         System.out.println(LOG_PREFIX + " Registering Gosu null-safety filter transformer...");
